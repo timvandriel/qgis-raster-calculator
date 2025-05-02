@@ -1,0 +1,10 @@
+*.pyc
+__pycache__/
+.idea/
+*.bak
+*.swp
+*~
+.DS_Store
+.pytest_cache/
+.coverage
+htmlcov/

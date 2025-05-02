@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/lazy_raster_calculator" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>

@@ -26,9 +26,12 @@ import os
 
 from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
+from qgis.core import QgsProject, QgsMapLayerType, QgsCoordinateReferenceSystem
+from qgis.gui import QgsMessageBar, QgsProjectionSelectionDialog
 
-FORM_CLASS, _ = uic.loadUiType(os.path.join(
-    os.path.dirname(__file__), 'lazy_raster_calculator_dockwidget_base.ui'))
+FORM_CLASS, _ = uic.loadUiType(
+    os.path.join(os.path.dirname(__file__), "lazy_raster_calculator_dockwidget_base.ui")
+)
 
 
 class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
@@ -45,6 +48,116 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
 
+        # check if layers were added or removed
+        QgsProject.instance().layersAdded.connect(self.populate_raster_layer_list)
+        QgsProject.instance().layerRemoved.connect(self.populate_raster_layer_list)
+
+        # Connect double-click event to populate expression box
+        self.rasterLayerListWidget.itemDoubleClicked.connect(
+            self.handle_layer_double_click
+        )
+
+        # buttons for raster calculator
+        self.plusButton.clicked.connect(lambda: self.insert_operator("+"))
+        self.minusButton.clicked.connect(lambda: self.insert_operator("-"))
+        self.multiplyButton.clicked.connect(lambda: self.insert_operator("*"))
+        self.divideButton.clicked.connect(lambda: self.insert_operator("/"))
+        self.openParenButton.clicked.connect(lambda: self.insert_operator("("))
+        self.closeParenButton.clicked.connect(lambda: self.insert_operator(")"))
+        self.clearButton.clicked.connect(self.clear_expression)
+        self.calculateButton.clicked.connect(self.calculate_expression)
+
+        # crs button
+        self.crsSelectButton.clicked.connect(self.open_crs_dialog)
+
+        self.populate_crs_combobox()
+
     def closeEvent(self, event):
         self.closingPlugin.emit()
         event.accept()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.populate_raster_layer_list()
+
+    def populate_raster_layer_list(self):
+        """Populate the list widget with names of loaded raster layers."""
+        self.rasterLayerListWidget.clear()
+        for layer in QgsProject.instance().mapLayers().values():
+            if layer.type() == QgsMapLayerType.RasterLayer:
+                self.rasterLayerListWidget.addItem(layer.name())
+
+    def handle_layer_double_click(self, item):
+        """Handle double-click event on a layer name in the list widget.
+        This method is called when the user double-clicks on a layer name in the list.
+        It inserts the layer name into the expression box at the current cursor position.
+        """
+        layer_name = item.text()
+        self.insert_text_into_text_edit(layer_name)
+
+    def insert_operator(self, operator):
+        """Insert an operator at the current cursor position in the expression box.
+        This method is called when the user clicks on an operator button (e.g., +, -, *, /).
+        """
+        self.insert_text_into_text_edit(operator)
+
+    def insert_layer_name(self, name):
+        """Insert a layer name at the current cursor position in the expression box.
+        This method is called when the user double-clicks on a layer name in the list.
+        """
+        self.insert_text_into_text_edit(name)
+
+    def clear_expression(self):
+        """Clear the expression box."""
+        self.expressionBox.clear()
+
+    def calculate_expression(self):
+        """Calculate the expression in the expression box."""
+        pass
+
+    def insert_text_into_text_edit(self, text):
+        """Insert text at the current cursor position in the expression box."""
+        cursor = self.expressionBox.textCursor()
+        cursor.insertText(text)
+        self.expressionBox.setTextCursor(cursor)
+        self.expressionBox.setFocus()
+
+    def update_expression_status(self, is_valid):
+        """Update the status label based on the validity of the expression."""
+        if is_valid:
+            self.expressionStatusLabel.setText("Valid expression")
+            self.expressionStatusLabel.setStyleSheet("color: green;")
+        else:
+            self.expressionStatusLabel.setText("Invalid expression")
+            self.expressionStatusLabel.setStyleSheet("color: red;")
+
+    def open_crs_dialog(self):
+        # Optionally set initial CRS, for example from your combo box or project CRS
+        initial_crs = QgsCoordinateReferenceSystem(
+            "EPSG:4326"
+        )  # or get from current combo box selection
+
+        dlg = QgsProjectionSelectionDialog(self)
+        dlg.setCrs(initial_crs)
+        if dlg.exec_() == 1:  # User pressed OK
+            selected_crs = dlg.crs()
+            # Now update your combo box or internal state with selected_crs
+            self.crsComboBox.setCurrentText(selected_crs.authid())
+            # Or store selected_crs for later use
+
+    def populate_crs_combobox(self):
+        self.crsComboBox.clear()
+
+        # Default CRS 4326
+        default_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+        self.crsComboBox.addItem(
+            f"{default_crs.authid()} - {default_crs.description()}",
+            default_crs.authid(),
+        )
+
+        # Project CRS
+        project_crs = QgsProject.instance().crs()
+        self.crsComboBox.addItem(
+            f"Project CRS - {project_crs.authid()} - {project_crs.description()}",
+            project_crs.authid(),
+        )

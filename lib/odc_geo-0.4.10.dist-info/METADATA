@@ -1,0 +1,143 @@
+Metadata-Version: 2.2
+Name: odc-geo
+Version: 0.4.10
+Summary: Geometry Classes and Operations (opendatacube)
+Home-page: https://github.com/opendatacube/odc-geo/
+Author: Open Data Cube
+Author-email: 
+Maintainer: Open Data Cube
+Maintainer-email: 
+License: Apache License 2.0
+Project-URL: Documentation, https://odc-geo.readthedocs.io/en/latest/
+Project-URL: Bug Reporting, https://github.com/opendatacube/odc-geo/issues
+Platform: any
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering :: GIS
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: affine
+Requires-Dist: cachetools
+Requires-Dist: numpy
+Requires-Dist: pyproj>=3.0.0
+Requires-Dist: shapely
+Provides-Extra: xr
+Requires-Dist: xarray>=0.19; extra == "xr"
+Provides-Extra: warp
+Requires-Dist: rasterio; extra == "warp"
+Provides-Extra: tiff
+Requires-Dist: tifffile; extra == "tiff"
+Requires-Dist: imagecodecs; extra == "tiff"
+Requires-Dist: dask[array,distributed]; extra == "tiff"
+Requires-Dist: rasterio; extra == "tiff"
+Requires-Dist: xarray>=0.19; extra == "tiff"
+Provides-Extra: s3
+Requires-Dist: boto3; extra == "s3"
+Provides-Extra: az
+Requires-Dist: azure-storage-blob; extra == "az"
+Provides-Extra: all
+Requires-Dist: rasterio; extra == "all"
+Requires-Dist: tifffile; extra == "all"
+Requires-Dist: imagecodecs; extra == "all"
+Requires-Dist: dask[array,distributed]; extra == "all"
+Requires-Dist: rasterio; extra == "all"
+Requires-Dist: xarray>=0.19; extra == "all"
+Requires-Dist: boto3; extra == "all"
+Requires-Dist: azure-storage-blob; extra == "all"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
+Requires-Dist: geopandas; extra == "test"
+Requires-Dist: rasterio; extra == "test"
+Provides-Extra: test-all
+Requires-Dist: pytest; extra == "test-all"
+Requires-Dist: pytest-cov; extra == "test-all"
+Requires-Dist: pytest-timeout; extra == "test-all"
+Requires-Dist: geopandas; extra == "test-all"
+Requires-Dist: rasterio; extra == "test-all"
+Requires-Dist: tifffile; extra == "test-all"
+Requires-Dist: imagecodecs; extra == "test-all"
+Requires-Dist: dask[array,distributed]; extra == "test-all"
+Requires-Dist: rasterio; extra == "test-all"
+Requires-Dist: xarray>=0.19; extra == "test-all"
+Requires-Dist: boto3; extra == "test-all"
+Requires-Dist: azure-storage-blob; extra == "test-all"
+Requires-Dist: folium; extra == "test-all"
+Requires-Dist: ipyleaflet; extra == "test-all"
+Requires-Dist: matplotlib; extra == "test-all"
+
+odc.geo
+#######
+
+|Documentation Status| |Test Status| |Test Coverage| |Conda Version| |Discord|
+
+This library combines geometry shape classes from shapely_ with CRS from pyproj_ to provide
+projection aware ``Geometry``. It exposes all the functionality provided by ``shapely`` modules, but
+will refuse operations between geometries defined in different projections. Geometries can be
+brought into a common projection with ``Geometry.to_crs`` method.
+
+Based on that foundation a number of data types and utilities useful for working with geospatial
+metadata are implemented. Of particular importance is ``GeoBox``. It is an abstraction for a
+geo-registered bounded pixel plane where a linear mapping from pixel coordinates to the real world
+is defined.
+
+To make working with geo-registered raster data easier an integration with xarray_ is provided.
+Importing ``odc.geo.xr`` enables the ``.odc.`` accessor on every ``xarray.Dataset`` and
+``xarray.DataArray``. This exposes geospatial information of a raster loaded with `Open Datacube`_
+or rioxarray_. Methods for attaching geospatial information to xarray objects in a robust way are
+also provided. Geospatial information attached in this way survives most operations you might do on
+the data: basic mathematical operations, type conversions, cropping, serialization to most formats
+like zarr, netcdf, GeoTIFF.
+
+For more details see Documentation_.
+
+|Intro Image|
+
+Origins
+=======
+
+This repository contains geometry related code extracted from `Open Datacube`_.
+
+For details and motivation see `ODC-EP-06`_ enhancement proposal.
+
+
+.. |Documentation Status| image:: https://readthedocs.org/projects/odc-geo/badge/?version=latest
+   :target: https://odc-geo.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+
+.. |Test Status| image:: https://github.com/opendatacube/odc-geo/actions/workflows/main.yml/badge.svg
+   :target: https://github.com/opendatacube/odc-geo/actions/workflows/main.yml
+   :alt: Test Status
+
+.. |Test Coverage| image:: https://codecov.io/gh/opendatacube/odc-geo/branch/develop/graph/badge.svg?token=Qc7isqXNGF
+   :target: https://codecov.io/gh/opendatacube/odc-geo
+   :alt: Test Coverage
+
+.. |Conda Version| image:: https://anaconda.org/conda-forge/odc-geo/badges/version.svg
+   :target: https://anaconda.org/conda-forge/odc-geo
+   :alt:  Conda Version
+
+.. |Discord| image:: https://img.shields.io/discord/1212501566326571070?label=Discord&logo=discord&logoColor=white&color=7289DA
+   :target: https://discord.gg/4hhBQVas5U
+   :alt: Join Discord for support
+
+.. |Intro Image| image:: docs/_static/intro.svg
+   :alt: Map with GeoBoxes
+   :width: 256
+
+.. _rioxarray: https://corteva.github.io/rioxarray/stable/
+.. _xarray: https://docs.xarray.dev/en/stable/
+.. _shapely: https://shapely.readthedocs.io/en/stable/manual.html
+.. _pyproj: https://pyproj4.github.io/pyproj/stable/
+.. _`Open Datacube`: https://github.com/opendatacube/datacube-core
+.. _`ODC-EP-06`: https://github.com/opendatacube/datacube-core/wiki/ODC-EP-06---Extract-Geometry-Utilities-into-a-Separate-Package
+.. _`Documentation`: https://odc-geo.readthedocs.io/

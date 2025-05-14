@@ -1,3 +1,5 @@
+import sys
+import os
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
@@ -25,6 +27,11 @@
 
 
 # noinspection PyPep8Naming
+
+# Add bundled packages to Python path
+lib_path = os.path.join(os.path.dirname(__file__), 'lib')
+if lib_path not in sys.path:
+    sys.path.insert(0, lib_path)
 def classFactory(iface):  # pylint: disable=invalid-name
     """Load LazyRasterCalculator class from file LazyRasterCalculator.
 

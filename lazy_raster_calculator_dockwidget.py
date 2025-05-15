@@ -28,6 +28,7 @@ from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
 from qgis.core import QgsProject, QgsMapLayerType, QgsCoordinateReferenceSystem
 from qgis.gui import QgsMessageBar, QgsProjectionSelectionDialog
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
 FORM_CLASS, _ = uic.loadUiType(
     os.path.join(os.path.dirname(__file__), "lazy_raster_calculator_dockwidget_base.ui")
@@ -65,12 +66,16 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.openParenButton.clicked.connect(lambda: self.insert_operator("("))
         self.closeParenButton.clicked.connect(lambda: self.insert_operator(")"))
         self.clearButton.clicked.connect(self.clear_expression)
-        self.calculateButton.clicked.connect(self.calculate_expression)
 
-        # crs button
+        # button for ouput path
+        self.outputPathButton.clicked.connect(self.select_output_path)
+
+        # crs button and combobox
         self.crsSelectButton.clicked.connect(self.open_crs_dialog)
-
         self.populate_crs_combobox()
+
+        # okay and cancel buttons
+        self.okButton.clicked.connect(self.on_ok_clicked)
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
@@ -92,7 +97,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         This method is called when the user double-clicks on a layer name in the list.
         It inserts the layer name into the expression box at the current cursor position.
         """
-        layer_name = item.text()
+        layer_name = '"' + item.text() + '"'
         self.insert_text_into_text_edit(layer_name)
 
     def insert_operator(self, operator):
@@ -110,10 +115,6 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def clear_expression(self):
         """Clear the expression box."""
         self.expressionBox.clear()
-
-    def calculate_expression(self):
-        """Calculate the expression in the expression box."""
-        pass
 
     def insert_text_into_text_edit(self, text):
         """Insert text at the current cursor position in the expression box."""
@@ -161,3 +162,47 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             f"Project CRS - {project_crs.authid()} - {project_crs.description()}",
             project_crs.authid(),
         )
+
+    def select_output_path(self):
+        """Open a file dialog to select the output path for the raster."""
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_name, _ = QFileDialog.getSaveFileName(
+            self,
+            "Select Output Path",
+            "",
+            "GeoTIFF Files (*.tif);;All Files (*)",
+            options=options,
+        )
+        if file_name:
+            self.outputPathLineEdit.setText(file_name)
+
+    def on_ok_clicked(self):
+        expression = self.expressionBox.toPlainText().strip()
+        output_path = self.outputPathLineEdit.text().strip()
+        is_lazy = self.lazyRadioButton.isChecked()
+
+        if not expression or not output_path:
+            QMessageBox.warning(
+                self,
+                "Missing Information",
+                "Please enter both an expression and output path.",
+            )
+            return
+
+        # For now just show a message
+        QMessageBox.information(
+            self, "Ready", f"Expression: {expression}\nLazy: {is_lazy}"
+        )
+
+        # Later you’ll call your compute/prepare function here
+
+    def on_cancel_clicked(self):
+        """Handle cancel button click event"""
+        self.clear_expression()
+        self.outputPathLineEdit.clear()
+        self.crsComboBox.setCurrentIndex(0)
+        self.lazyRadioButton.setChecked(True)
+        self.populate_raster_layer_list()
+        self.populate_crs_combobox()
+        self.update_expression_status(False)

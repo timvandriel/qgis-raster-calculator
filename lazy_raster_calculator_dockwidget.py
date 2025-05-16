@@ -29,6 +29,7 @@ from qgis.PyQt.QtCore import pyqtSignal
 from qgis.core import QgsProject, QgsMapLayerType, QgsCoordinateReferenceSystem
 from qgis.gui import QgsMessageBar, QgsProjectionSelectionDialog
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from .raster_operations import *
 
 FORM_CLASS, _ = uic.loadUiType(
     os.path.join(os.path.dirname(__file__), "lazy_raster_calculator_dockwidget_base.ui")
@@ -76,6 +77,10 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
         # okay and cancel buttons
         self.okButton.clicked.connect(self.on_ok_clicked)
+        self.cancelButton.clicked.connect(self.on_cancel_clicked)
+
+        # check for valid expression
+        self.expressionBox.textChanged.connect(self.on_expression_changed)
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
@@ -131,6 +136,12 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         else:
             self.expressionStatusLabel.setText("Invalid expression")
             self.expressionStatusLabel.setStyleSheet("color: red;")
+
+    def on_expression_changed(self):
+        """Handle changes in the expression box."""
+        text = self.expressionBox.toPlainText().strip()
+        valid = is_valid_expression(text)
+        self.update_expression_status(valid)
 
     def open_crs_dialog(self):
         # Optionally set initial CRS, for example from your combo box or project CRS
@@ -196,6 +207,18 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         )
 
         # Later you’ll call your compute/prepare function here
+        layers = extract_layer_names(expression)
+        missing_layers = validate_raster_layer_names(layers)
+        if missing_layers:
+            QMessageBox.warning(
+                self,
+                "Missing Layers",
+                f"The following layers are missing: {', '.join(missing_layers)}",
+            )
+            return
+
+        raster_dict = get_raster_objects(layers)
+        evaluate_expression(expression, raster_dict)
 
     def on_cancel_clicked(self):
         """Handle cancel button click event"""

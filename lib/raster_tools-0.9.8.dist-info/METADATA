@@ -1,0 +1,73 @@
+Metadata-Version: 2.4
+Name: raster-tools
+Version: 0.9.8
+Summary: Tools for processing geospatial data
+Home-page: https://github.com/UM-RMRS/raster_tools
+License: GPL-3.0
+Project-URL: Bug Tracker, https://github.com/UM-RMRS/raster_tools/issues
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: affine
+Requires-Dist: cfgrib
+Requires-Dist: dask
+Requires-Dist: dask-geopandas
+Requires-Dist: dask-image
+Requires-Dist: fiona
+Requires-Dist: geopandas
+Requires-Dist: netcdf4
+Requires-Dist: numba
+Requires-Dist: numpy>=1.22
+Requires-Dist: odc-geo
+Requires-Dist: pandas
+Requires-Dist: pyogrio
+Requires-Dist: pyproj
+Requires-Dist: rioxarray
+Requires-Dist: rasterio
+Requires-Dist: scipy
+Requires-Dist: shapely>=2.0
+Requires-Dist: xarray
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Raster Tools
+Raster Tools is a python package that facilitates a wide range of spatial,
+statistical, machine learning analyses using delayed and automated parallel
+processing. Our library focuses on significantly reducing processing time and
+storage space associated with analyzing large spatial datasets while also
+introducing new spatial, statistical, machine learning concepts into an
+easy-to-use python based API.
+
+![image.gif](./notebooks/images/animatedRMRS2.gif)
+
+## Helpful Links
+- [How to Contribute](./CONTRIBUTING.md)
+- [Documentation](https://um-rmrs.github.io/raster_tools/)
+- [Notebooks & Tutorials](./notebooks/README.md)
+- [PyPi link](https://pypi.org/project/raster-tools/)
+- [Installation](./notebooks/install_raster_tools.md)
+
+## Package Dependencies
+- [dask](https://dask.org/)
+- [dask_image](https://image.dask.org/en/latest/)
+- [dask-geopandas](https://dask-geopandas.readthedocs.io/en/stable/)
+- [geopandas](https://geopandas.org/en/stable/)
+- [numba](https://numba.pydata.org/)
+- [odc-geo](https://odc-geo.readthedocs.io/en/latest/)
+- [rasterio](https://rasterio.readthedocs.io/en/latest/)
+- [rioxarray](https://corteva.github.io/rioxarray/stable/)
+- [shapely 2](https://shapely.readthedocs.io/en/stable/)
+- [xarray](https://xarray.pydata.org/en/stable/)

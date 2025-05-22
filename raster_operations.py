@@ -12,7 +12,6 @@ from qgis.core import (
 )
 from qgis.utils import iface
 import re
-
 import raster_tools
 
 # Check if raster_tools is available
@@ -101,12 +100,21 @@ def get_raster_objects(layer_names):
 def evaluate_expression(expression: str, raster_objects: dict):
     """
     Evaluate the expression using the raster objects.
+    Replaces quoted layer names (e.g., "albedo_5") with safe variable names.
     """
     context = {}
-    for name, raster in raster_objects.items():
-        safe_name = f"r_{hash(name)}"
+    name_map = {}
+
+    # Map each raster name to a safe variable name
+    for i, (name, raster) in enumerate(raster_objects.items()):
+        safe_name = f"r_{i}"
         context[safe_name] = raster
-        expression = expression.replace(f'"{name}"', safe_name)
+        name_map[name] = safe_name
+
+    # Replace quoted layer names in the expression with variable names
+    expression = re.sub(
+        r'"([^"]+)"', lambda m: name_map.get(m.group(1), m.group(0)), expression
+    )
 
     try:
         result = eval(expression, {"__builtins__": None}, context)

@@ -29,7 +29,8 @@ from qgis.PyQt.QtCore import pyqtSignal
 from qgis.core import QgsProject, QgsMapLayerType, QgsCoordinateReferenceSystem
 from qgis.gui import QgsMessageBar, QgsProjectionSelectionDialog
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
-from .raster_operations import *
+from .backend import *
+import traceback
 
 FORM_CLASS, _ = uic.loadUiType(
     os.path.join(os.path.dirname(__file__), "lazy_raster_calculator_dockwidget_base.ui")
@@ -140,10 +141,11 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def on_expression_changed(self):
         """Handle changes in the expression box."""
         text = self.expressionBox.toPlainText().strip()
-        valid = is_valid_expression(text)
+        valid = ExpressionEvaluator.is_valid_expression(text)
         self.update_expression_status(valid)
 
     def open_crs_dialog(self):
+        """Open the CRS selection dialog and set the selected CRS."""
         # Optionally set initial CRS, for example from your combo box or project CRS
         initial_crs = QgsCoordinateReferenceSystem(
             "EPSG:4326"
@@ -158,6 +160,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             # Or store selected_crs for later use
 
     def populate_crs_combobox(self):
+        """Populate the CRS combo box with available coordinate reference systems."""
         self.crsComboBox.clear()
 
         # Default CRS 4326
@@ -192,6 +195,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         expression = self.expressionBox.toPlainText().strip()
         output_path = self.outputPathLineEdit.text().strip()
         is_lazy = self.lazyRadioButton.isChecked()
+        crs_authid = self.crsComboBox.currentData()
 
         if not expression or not output_path:
             QMessageBox.warning(
@@ -201,34 +205,67 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             )
             return
 
-        # For now just show a message
-        QMessageBox.information(
-            self, "Ready", f"Expression: {expression}\nLazy: {is_lazy}"
-        )
+        try:
+            # Extract and validate layers
+            print(f"ExpressionEvaluator: {ExpressionEvaluator}")
+            print(f"type(ExpressionEvaluator): {type(ExpressionEvaluator)}")
+            print(f"expression: {expression} (type: {type(expression)})")
 
-        # Later you’ll call your compute/prepare function here
-        layers = extract_layer_names(expression)
-        missing_layers = validate_raster_layer_names(layers)
-        if missing_layers:
-            QMessageBox.warning(
-                self,
-                "Missing Layers",
-                f"The following layers are missing: {', '.join(missing_layers)}",
+            print("Calling extract_layer_names...")
+            layer_names = ExpressionEvaluator.extract_layer_names(expression)
+            print("Layer names extracted:", layer_names)
+
+            layer_manager = LayerManager()
+            missing_layers = layer_manager.validate_layer_names(layer_names)
+            if missing_layers:
+                raise LayerNotFoundError(
+                    f"Missing raster layers: {', '.join(missing_layers)}"
+                )
+
+            # Prepare rasters
+            raster_manager = RasterManager(layer_manager)
+
+            raster_dict = raster_manager.get_rasters(layer_names)
+            expression_evaluator = ExpressionEvaluator(raster_manager)
+            result = expression_evaluator.evaluate(expression)
+
+            if is_lazy:
+                QMessageBox.information(
+                    self,
+                    "Lazy Evaluation",
+                    f"Lazy evaluation complete. Result object created: {result}",
+                )
+                return
+
+            # Save result immediately (eager evaluation)
+            full_output_path = (
+                output_path if output_path.endswith(".tif") else output_path + ".tif"
             )
-            return
 
-        raster_dict = get_raster_objects(layers)
-        result = evaluate_expression(expression, raster_dict)
-        if is_lazy:
+            raster_saver = RasterSaver()
+            raster_saver.save(result, full_output_path)
+
             QMessageBox.information(
                 self,
-                "Lazy Evaluation",
-                f"Lazy evaluation will be performed. Result: {result}",
+                "Success",
+                f"Raster saved to:\n{full_output_path}",
             )
-        else:
-            # Save the result to the specified output path
-            output_path += ".tif"
-            save_raster(result, output_path)
+
+        except InvalidExpressionError as e:
+            QMessageBox.critical(self, "Invalid Expression", str(e))
+        except LayerNotFoundError as e:
+            QMessageBox.critical(self, "Missing Layers", str(e))
+        except RasterToolsUnavailableError as e:
+            QMessageBox.critical(self, "Raster Tools Error", str(e))
+        except RasterSaveError as e:
+            QMessageBox.critical(self, "Save Error", str(e))
+        except Exception as e:
+            tb = traceback.format_exc()
+            QMessageBox.critical(
+                self,
+                "Unexpected Error",
+                f"An unexpected error occurred:\n{str(e)}\n\nTraceback:\n{tb}",
+            )
 
     def on_cancel_clicked(self):
         """Handle cancel button click event"""

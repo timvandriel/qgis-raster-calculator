@@ -36,7 +36,15 @@ def extract_layer_names(expression: str) -> list[str]:
 
 
 def validate_raster_layer_names(layer_names: list[str]) -> list[str]:
-    """Return list of raster layer names that are missing in the project."""
+    """
+    Return list of raster layer names that are missing in the project.
+
+    Args:
+        layer_names list[str]: layer names within the expression.
+
+    Returns:
+        list[str]: layers within the expression that are missing in the project."""
+
     missing_layers = []
     for name in layer_names:
         matches = QgsProject.instance().mapLayersByName(name)
@@ -47,8 +55,19 @@ def validate_raster_layer_names(layer_names: list[str]) -> list[str]:
 
 def is_valid_expression(expression: str) -> bool:
     """
-    Check if the expression is syntactically valid.
-    Returns True if valid, False otherwise.
+    Checks for:
+        - empty expression
+        - balanced parentheses
+        - consecutive layer names ie: "layer1""layer2"
+        - invalid characters
+        - consecutive operators
+        - invalid sequences ie: (layer1 +)
+
+    Args:
+        expression (str): The expression to be evaluated.
+
+    Returns:
+        boolean: True if expression is valid false otherwise
     """
     # check if expression is empty
     if not expression:
@@ -60,6 +79,10 @@ def is_valid_expression(expression: str) -> bool:
 
     # Remove valid quoted layer names so we can focus on operators
     expr_cleaned = re.sub(r'"[^"]+"', "LAYER", expression)
+
+    # Check for two consecutive LAYERLAYER or LAYER LAYER
+    if "LAYERLAYER" in expr_cleaned or re.search(r"LAYER\s+LAYER", expr_cleaned):
+        return False
 
     # Check for invalid characters (anything that's not LAYER, operator, parens, or space)
     if re.search(r"[^LAYER+\-*/()\s]", expr_cleaned):
@@ -79,6 +102,13 @@ def is_valid_expression(expression: str) -> bool:
 def get_raster_layer_by_name(name: str):
     """
     Returns the QgsRasterLayer with the given name, or None if not found.
+
+    Args:
+        name (str): the name of the layer to return as QgsRasterLayer
+
+    Returns:
+        QgsRasterLayer
+        None: if layer is not found
     """
     for layer in QgsProject.instance().mapLayers().values():
         if isinstance(layer, QgsRasterLayer) and layer.name() == name:
@@ -86,14 +116,26 @@ def get_raster_layer_by_name(name: str):
     return None
 
 
-def get_raster_objects(layer_names):
-    """Takes a list of layer names and returns a dictionary of raster objects."""
+def get_raster_objects(layer_names: list[str]):
+    """
+    Takes a list of layer names and returns a dictionary of raster objects.
+
+    Args:
+        layer_names list[str]: list of layer names used in the expression
+
+    Returns:
+        dictionary: dictonary with name of the layer as the key and the value being
+        raster_tools.Raster object
+
+    """
     raster_objects = {}
     for name in layer_names:
         layer = get_raster_layer_by_name(name)
         if layer is None:
             continue
-        raster_objects[name] = raster_tools.Raster(layer.source())
+        raster_objects[name] = raster_tools.Raster(
+            layer.source()
+        )  # create Raster object from Raster layer source
     return raster_objects
 
 
@@ -101,6 +143,14 @@ def evaluate_expression(expression: str, raster_objects: dict):
     """
     Evaluate the expression using the raster objects.
     Replaces quoted layer names (e.g., "albedo_5") with safe variable names.
+
+    Args:
+        expression (str): the expression being evaluated
+        raster_objects (dict): dictionary of layer names and coinciding raster objects
+
+    Returns:
+        result: the result of the evaluated expression
+        None: if there is an error during evaluation
     """
     context = {}
     name_map = {}
@@ -126,3 +176,30 @@ def evaluate_expression(expression: str, raster_objects: dict):
             Qgis.Critical,
         )
         return None
+
+
+def save_raster(raster, output_path, driver="GTiff"):
+    """
+    Save the raster to the specified output path.
+
+    Args:
+        raster (raster_tools.Raster): The raster object to save.
+        output_path (str): The file path where the raster will be saved.
+        driver (str): The format driver to use for saving the raster (default is "GTiff").
+    Returns:
+        None: if the raster is saved successfully
+        None: if there is an error during saving
+    """
+    try:
+        raster.save(output_path, driver=driver)
+        QgsMessageLog.logMessage(
+            f"Raster saved to {output_path}",
+            "Lazy Raster Calculator",
+            Qgis.Info,
+        )
+    except Exception as e:
+        QgsMessageLog.logMessage(
+            f"Error saving raster: {str(e)}\n{traceback.format_exc()}",
+            "Lazy Raster Calculator",
+            Qgis.Critical,
+        )

@@ -218,7 +218,17 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             return
 
         raster_dict = get_raster_objects(layers)
-        evaluate_expression(expression, raster_dict)
+        result = evaluate_expression(expression, raster_dict)
+        if is_lazy:
+            QMessageBox.information(
+                self,
+                "Lazy Evaluation",
+                f"Lazy evaluation will be performed. Result: {result}",
+            )
+        else:
+            # Save the result to the specified output path
+            output_path += ".tif"
+            save_raster(result, output_path)
 
     def on_cancel_clicked(self):
         """Handle cancel button click event"""

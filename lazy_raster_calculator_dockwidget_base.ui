@@ -158,16 +158,16 @@
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="closeParenButton">
+           <widget class="QPushButton" name="openParenButton">
             <property name="text">
-             <string>)</string>
+             <string>(</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="openParenButton">
+           <widget class="QPushButton" name="closeParenButton">
             <property name="text">
-             <string>(</string>
+             <string>)</string>
             </property>
            </widget>
           </item>

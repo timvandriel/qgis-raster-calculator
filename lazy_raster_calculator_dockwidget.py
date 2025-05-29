@@ -112,12 +112,6 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         """
         self.insert_text_into_text_edit(operator)
 
-    def insert_layer_name(self, name):
-        """Insert a layer name at the current cursor position in the expression box.
-        This method is called when the user double-clicks on a layer name in the list.
-        """
-        self.insert_text_into_text_edit(name)
-
     def clear_expression(self):
         """Clear the expression box."""
         self.expressionBox.clear()
@@ -146,18 +140,28 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
     def open_crs_dialog(self):
         """Open the CRS selection dialog and set the selected CRS."""
-        # Optionally set initial CRS, for example from your combo box or project CRS
-        initial_crs = QgsCoordinateReferenceSystem(
-            "EPSG:4326"
-        )  # or get from current combo box selection
+        initial_crs = QgsCoordinateReferenceSystem("EPSG:4326")
 
         dlg = QgsProjectionSelectionDialog(self)
         dlg.setCrs(initial_crs)
+
         if dlg.exec_() == 1:  # User pressed OK
             selected_crs = dlg.crs()
-            # Now update your combo box or internal state with selected_crs
-            self.crsComboBox.setCurrentText(selected_crs.authid())
-            # Or store selected_crs for later use
+            selected_authid = selected_crs.authid()
+            selected_label = f"{selected_authid} - {selected_crs.description()}"
+
+            # Check if it's already in the combo box
+            found = False
+            for i in range(self.crsComboBox.count()):
+                if self.crsComboBox.itemData(i) == selected_authid:
+                    self.crsComboBox.setCurrentIndex(i)
+                    found = True
+                    break
+
+            # If not found, add it
+            if not found:
+                self.crsComboBox.addItem(selected_label, selected_authid)
+                self.crsComboBox.setCurrentIndex(self.crsComboBox.count() - 1)
 
     def populate_crs_combobox(self):
         """Populate the CRS combo box with available coordinate reference systems."""
@@ -195,7 +199,9 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         expression = self.expressionBox.toPlainText().strip()
         output_path = self.outputPathLineEdit.text().strip()
         is_lazy = self.lazyRadioButton.isChecked()
-        crs_authid = self.crsComboBox.currentData()
+        crs_index = self.crsComboBox.currentIndex()
+        target_crs_authid = self.crsComboBox.itemData(crs_index)
+        print(f"Selected CRS: {target_crs_authid}")
 
         if not expression or not output_path:
             QMessageBox.warning(
@@ -206,28 +212,14 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             return
 
         try:
-            # Extract and validate layers
-            print(f"ExpressionEvaluator: {ExpressionEvaluator}")
-            print(f"type(ExpressionEvaluator): {type(ExpressionEvaluator)}")
-            print(f"expression: {expression} (type: {type(expression)})")
-
-            print("Calling extract_layer_names...")
-            layer_names = ExpressionEvaluator.extract_layer_names(expression)
-            print("Layer names extracted:", layer_names)
-
             layer_manager = LayerManager()
-            missing_layers = layer_manager.validate_layer_names(layer_names)
-            if missing_layers:
-                raise LayerNotFoundError(
-                    f"Missing raster layers: {', '.join(missing_layers)}"
-                )
 
             # Prepare rasters
             raster_manager = RasterManager(layer_manager)
-
-            raster_dict = raster_manager.get_rasters(layer_names)
             expression_evaluator = ExpressionEvaluator(raster_manager)
-            result = expression_evaluator.evaluate(expression)
+
+            # Evaluate the expression with reprojection if needed
+            result = expression_evaluator.evaluate(expression, target_crs_authid)
 
             if is_lazy:
                 QMessageBox.information(

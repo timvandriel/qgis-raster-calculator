@@ -201,7 +201,6 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         is_lazy = self.lazyRadioButton.isChecked()
         crs_index = self.crsComboBox.currentIndex()
         target_crs_authid = self.crsComboBox.itemData(crs_index)
-        print(f"Selected CRS: {target_crs_authid}")
 
         if not expression or not output_path:
             QMessageBox.warning(

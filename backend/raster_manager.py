@@ -40,7 +40,7 @@ class RasterManager:
             raise LayerNotFoundError(f"Layer '{name}' not found in QGIS project.")
 
         try:
-            raster = raster_tools.Raster(qgis_layer.source())
+            raster = raster_tools.Raster(qgis_layer.source()).astype("float32")
         except Exception as e:
             # Wrap and raise a more informative error if Raster creation fails
             raise RasterToolsUnavailableError(

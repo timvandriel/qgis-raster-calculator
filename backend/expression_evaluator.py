@@ -64,7 +64,7 @@ class ExpressionEvaluator:
             return False
 
         # Ensure only allowed characters remain
-        if re.search(r"[^LAYER+\-*/()\s]", expr_cleaned):
+        if re.search(r"[^\dLAYER+\-*/().\s]", expr_cleaned):
             return False
 
         # Check for multiple consecutive operators

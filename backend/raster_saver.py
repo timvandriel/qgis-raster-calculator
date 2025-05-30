@@ -1,6 +1,7 @@
 import os
 from qgis.core import QgsProject, QgsRasterLayer, QgsMessageLog, Qgis
 from .exceptions import RasterCalcError, RasterSaveError
+import traceback
 
 
 class RasterSaver:
@@ -36,35 +37,9 @@ class RasterSaver:
                 f"Raster saved to {output_path}", "Lazy Raster Calculator", Qgis.Info
             )
         except Exception as e:
-            # Log the error and raise a custom exception
+            tb = traceback.format_exc()
             QgsMessageLog.logMessage(
-                f"Error saving raster: {str(e)}",
+                f"Error saving raster: {str(e)}\nTraceback:\n{tb}",
                 "Lazy Raster Calculator",
                 Qgis.Critical,
             )
-            raise RasterSaveError(str(e))
-
-    def reproject_to_CRS(self, raster, target_crs, projection=None):
-        """
-        Reprojects the raster to the specified CRS.
-
-        Parameters:
-            raster: The raster object to be reprojected.
-            target_crs: The target coordinate reference system (CRS) to reproject to.
-            reprojection: Optional projection parameters (default is None). May include later.
-
-        Returns:
-            The reprojected raster object.
-
-        Raises:
-            RasterCalcError: If the reprojection fails.
-        """
-        try:
-            return raster.reproject(target_crs, projection=projection)
-        except Exception as e:
-            QgsMessageLog.logMessage(
-                f"Error reprojecting raster: {str(e)}",
-                "Lazy Raster Calculator",
-                Qgis.Critical,
-            )
-            raise RasterCalcError(f"Reprojection failed: {str(e)}")

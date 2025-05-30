@@ -181,19 +181,81 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             project_crs.authid(),
         )
 
+    def _add_file_extension(self, file_name, selected_filter):
+        """Add appropriate file extension based on the selected filter if missing."""
+        if selected_filter.startswith("GeoTIFF") and not file_name.endswith(".tif"):
+            file_name += ".tif"
+        elif selected_filter.startswith("Erdas Imagine") and not file_name.endswith(
+            ".img"
+        ):
+            file_name += ".img"
+        elif selected_filter.startswith("NetCDF") and not file_name.endswith(".nc"):
+            file_name += ".nc"
+        elif selected_filter.startswith("ASCII Grid") and not file_name.endswith(
+            ".asc"
+        ):
+            file_name += ".asc"
+        elif selected_filter.startswith("JPEG2000") and not file_name.endswith(".jp2"):
+            file_name += ".jp2"
+        elif selected_filter.startswith("PNG") and not file_name.endswith(".png"):
+            file_name += ".png"
+        elif selected_filter.startswith("ENVI") and not file_name.endswith(".dat"):
+            file_name += ".dat"
+        elif selected_filter.startswith("MBTiles") and not file_name.endswith(
+            ".mbtiles"
+        ):
+            file_name += ".mbtiles"
+        return file_name
+
     def select_output_path(self):
         """Open a file dialog to select the output path for the raster."""
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getSaveFileName(
+        file_name, selected_filter = QFileDialog.getSaveFileName(
             self,
             "Select Output Path",
             "",
-            "GeoTIFF Files (*.tif);;All Files (*)",
+            (
+                "GeoTIFF (*.tif);;"
+                "Erdas Imagine (*.img);;"
+                "NetCDF (*.nc);;"
+                "ASCII Grid (*.asc);;"
+                "JPEG2000 (*.jp2);;"
+                "PNG (*.png);;"
+                "ENVI (*.dat);;"
+                "MBTiles (*.mbtiles);;"
+                "All Files (*.*)"
+            ),
             options=options,
         )
         if file_name:
+            self.selectedFilter = selected_filter
+
+            file_name = self._add_file_extension(file_name, selected_filter)
             self.outputPathLineEdit.setText(file_name)
+
+    def _select_driver(self):
+        f = self.selectedFilter
+        if f.startswith("GeoTIFF"):
+            return "GTiff"
+        elif f.startswith("Erdas Imagine"):
+            return "HFA"
+        elif f.startswith("NetCDF"):
+            return "NetCDF"
+        elif f.startswith("ASCII Grid"):
+            return "AAIGrid"
+        elif f.startswith("JPEG2000"):
+            return "JP2OpenJPEG"
+        elif f.startswith("PNG"):
+            return "PNG"
+        elif f.startswith("ENVI"):
+            return "ENVI"
+        elif f.startswith("MBTiles"):
+            return "MBTiles"
+        else:
+            raise ValueError(
+                "Unsupported file format selected: {}".format(self.selectedFilter)
+            )
 
     def on_ok_clicked(self):
         expression = self.expressionBox.toPlainText().strip()
@@ -228,18 +290,14 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 )
                 return
 
-            # Save result immediately (eager evaluation)
-            full_output_path = (
-                output_path if output_path.endswith(".tif") else output_path + ".tif"
-            )
-
+            driver = self._select_driver()
             raster_saver = RasterSaver()
-            raster_saver.save(result, full_output_path)
+            raster_saver.save(result, output_path, driver=driver)
 
             QMessageBox.information(
                 self,
                 "Success",
-                f"Raster saved to:\n{full_output_path}",
+                f"Raster saved to:\n{output_path}",
             )
 
         except InvalidExpressionError as e:

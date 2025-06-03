@@ -292,6 +292,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
             driver = self._select_driver()
             raster_saver = RasterSaver()
+            if driver == "PNG":
+                result = result.astype("uint16")  # PNG requires uint8 or uint16
             raster_saver.save(result, output_path, driver=driver)
 
             QMessageBox.information(

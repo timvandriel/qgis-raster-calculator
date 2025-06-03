@@ -2,6 +2,7 @@ from .layer_manager import LayerManager
 from .raster_manager import RasterManager
 from .expression_evaluator import ExpressionEvaluator
 from .raster_saver import RasterSaver
+from .safe_evaluator import SafeEvaluator
 from .exceptions import (
     RasterCalcError,
     LayerNotFoundError,
@@ -15,6 +16,7 @@ __all__ = [
     "RasterManager",
     "ExpressionEvaluator",
     "RasterSaver",
+    "SafeEvaluator",
     "RasterCalcError",
     "LayerNotFoundError",
     "InvalidExpressionError",

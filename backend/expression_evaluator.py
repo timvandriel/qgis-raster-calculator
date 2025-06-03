@@ -3,8 +3,10 @@ import traceback
 from qgis.core import QgsMessageLog, Qgis
 from .exceptions import InvalidExpressionError
 from .raster_manager import RasterManager
+from .safe_evaluator import SafeEvaluator
 import raster_tools
 import xarray as xr
+import ast
 
 
 class ExpressionEvaluator:
@@ -38,52 +40,31 @@ class ExpressionEvaluator:
     @staticmethod
     def is_valid_expression(expression: str) -> bool:
         """
-        Checks if the expression is syntactically valid and contains at least one operand.
-
-        Args:
-            expression (str): The expression to validate.
-
-        Returns:
-            bool: True if valid, False otherwise.
+        Validates the expression syntax using Python's AST parser.
+        Replaces quoted layer names with valid identifiers before parsing.
         """
         if not expression:
             return False
 
-        if expression.count("(") != expression.count(")"):
+        try:
+            # Replace quoted layer names with dummy identifiers like r_0, r_1, etc.
+            # This makes it syntactically valid Python code
+            dummy_names = {}
+
+            def replacer(match):
+                name = match.group(1)
+                if name not in dummy_names:
+                    dummy_names[name] = f"r_{len(dummy_names)}"
+                return dummy_names[name]
+
+            expr_cleaned = re.sub(r'"([^"]+)"', replacer, expression)
+
+            # Try parsing the expression
+            ast.parse(expr_cleaned, mode="eval")
+            return True
+
+        except SyntaxError:
             return False
-
-        # Replace quoted layer names with placeholder
-        expr_cleaned = re.sub(r'"[^"]+"', "LAYER", expression)
-
-        # Must contain at least one operand (LAYER)
-        if "LAYER" not in expr_cleaned:
-            return False
-
-        # Check for invalid layer placement
-        if "LAYERLAYER" in expr_cleaned or re.search(r"LAYER\s+LAYER", expr_cleaned):
-            return False
-
-        # Ensure only allowed characters remain
-        if re.search(r"[^\dLAYER+\-*/().\s]", expr_cleaned):
-            return False
-
-        # Check for multiple consecutive operators
-        if re.search(r"[\+\-\*/]{2,}", expr_cleaned):
-            return False
-
-        # Invalid start/end of group
-        if re.search(r"\([+\*/]", expr_cleaned) or re.search(r"[+\*/]\)", expr_cleaned):
-            return False
-
-        # Check for invalid end of expression
-        if expr_cleaned.strip()[-1] in "+-*/":
-            return False
-
-        # Check for empty parentheses
-        if re.search(r"\(\s*\)", expr_cleaned):
-            return False
-
-        return True
 
     @staticmethod
     def reproject_if_needed(raster, target_crs):
@@ -214,8 +195,9 @@ class ExpressionEvaluator:
 
         try:
             # Step 6: Evaluate the expression
-            # WARNING: `eval()` is used here and should ideally be replaced with a safer alternative
-            result = eval(safe_expression, {"__builtins__": None}, context)
+            parsed = ast.parse(safe_expression, mode="eval")
+            evaluator = SafeEvaluator(context)
+            result = evaluator.visit(parsed.body)
             return result
         except Exception as e:
             QgsMessageLog.logMessage(

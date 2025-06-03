@@ -32,6 +32,7 @@ from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from .backend import *
 import traceback
 
+
 FORM_CLASS, _ = uic.loadUiType(
     os.path.join(os.path.dirname(__file__), "lazy_raster_calculator_dockwidget_base.ui")
 )
@@ -241,7 +242,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         elif f.startswith("Erdas Imagine"):
             return "HFA"
         elif f.startswith("NetCDF"):
-            return "NetCDF"
+            return "netCDF"
         elif f.startswith("ASCII Grid"):
             return "AAIGrid"
         elif f.startswith("JPEG2000"):
@@ -294,7 +295,25 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             raster_saver = RasterSaver()
             if driver == "PNG":
                 result = result.astype("uint16")  # PNG requires uint8 or uint16
-            raster_saver.save(result, output_path, driver=driver)
+            try:
+                # Add this right before raster_saver.save(result, output_path, driver=driver)
+                print(
+                    f"🔍 MAIN DEBUG: About to save with driver='{driver}' from filter='{self.selectedFilter}'"
+                )
+                print(f"🔍 MAIN DEBUG: Output path='{output_path}'")
+
+                # Quick test to see what methods the raster object has
+                print(
+                    f"🔍 MAIN DEBUG: Raster object methods: {[m for m in dir(result) if 'save' in m.lower()]}"
+                )
+                raster_saver.save(result, output_path, driver=driver)
+            except Exception as e:
+                print(f"Error saving file: {str(e)}")
+                return
+            if os.path.exists(output_path):
+                print("✅ File was saved.")
+            else:
+                print("❌ Save operation failed silently.")
 
             QMessageBox.information(
                 self,

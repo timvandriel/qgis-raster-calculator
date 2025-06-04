@@ -1,4 +1,5 @@
 import raster_tools
+import xarray as xr
 from .layer_manager import LayerManager
 from typing import Optional
 from .exceptions import RasterToolsUnavailableError, LayerNotFoundError
@@ -68,3 +69,72 @@ class RasterManager:
             else:
                 raise LayerNotFoundError(f"Layer '{name}' not found in QGIS project.")
         return rasters
+
+    def reproject_if_needed(self, raster, target_crs):
+        """Check if the raster's CRS matches the target CRS and reproject if necessary.
+        Args:
+            raster (raster_tools.Raster): The raster object to check.
+            target_crs (str): The target CRS in AUTHID format (e.g., "EPSG:4326").
+        Returns:
+            raster_tools.Raster: The raster object, reprojected if necessary.
+        """
+        if raster.crs.to_string() == target_crs:
+            return raster
+        return raster.reproject(crs_or_geobox=target_crs)
+
+    def _approx_geobox_area(self, geobox):
+        """
+        Estimates the area of a geobox by mulitplying its rows, columns, and pixel size.
+        Args:
+            geobox (raster_tools.Geobox): The geobox to estimate the area for.
+        Returns:
+            float: The estimated area of the geobox.
+        """
+        rows, cols = geobox.shape[0], geobox.shape[1]  # Get number of rows and columns
+        px_w, px_h = geobox.affine.a, abs(geobox.affine.e)  # Get pixel width and height
+        return rows * cols * px_w * px_h
+
+    def _align_to_smallest_extent(self, rasters: dict):
+        """Aligns multiple rasters to the smallest extent by reprojecting them to a common geobox.
+        Args:
+            rasters (dict): A dictionary of raster names and their corresponding raster objects.
+        Returns:
+            tuple: A tuple containing the reference raster name and a dictionary of aligned rasters.
+        """
+        # If only one raster, return it as the reference
+        if len(rasters) <= 1:
+            return next(iter(rasters)), rasters
+
+        # Find the raster with the smallest geobox area to use as reference
+        ref_name, ref_raster = min(
+            rasters.items(),
+            key=lambda item: self._approx_geobox_area(item[1].geobox),
+        )
+        # Use the reference raster's geobox for alignment
+        ref_grid = ref_raster.geobox
+        aligned_rasters = {}
+
+        # Align all rasters to the reference geobox
+        for name, raster in rasters.items():
+            if ref_grid == raster.geobox:
+                aligned_rasters[name] = raster
+            else:
+                # Reproject
+                reprojected = raster.reproject(crs_or_geobox=ref_grid)
+
+                # Wrap dask array in xarray DataArray with coords/dims from reference
+                xr_da = xr.DataArray(
+                    reprojected.data,
+                    coords={
+                        "x": ref_raster.xdata.coords["x"],
+                        "y": ref_raster.xdata.coords["y"],
+                        # Add other coords if necessary
+                    },
+                    dims=ref_raster.xdata.dims,
+                )
+
+                aligned_rasters[name] = raster_tools.Raster(
+                    xr_da
+                )  # Wrap in Raster object
+
+        return ref_name, aligned_rasters

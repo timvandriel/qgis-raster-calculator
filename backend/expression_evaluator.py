@@ -5,8 +5,8 @@ from .exceptions import InvalidExpressionError
 from .raster_manager import RasterManager
 from .safe_evaluator import SafeEvaluator
 import raster_tools
-import xarray as xr
 import ast
+import numpy as np
 
 
 class ExpressionEvaluator:
@@ -111,8 +111,8 @@ class ExpressionEvaluator:
         )
 
         # Step 5: Create a safe evaluation context
-        context = {}
-        name_map = {}
+        context = {}  # maps safe variable names to Raster objects
+        name_map = {}  # maps original layer names to safe variable names
 
         for i, (name, raster) in enumerate(raster_objects.items()):
             safe_name = f"r_{i}"  # Create safe variable name
@@ -126,9 +126,19 @@ class ExpressionEvaluator:
 
         try:
             # Step 6: Evaluate the expression
-            parsed = ast.parse(safe_expression, mode="eval")
-            evaluator = SafeEvaluator(context)
-            result = evaluator.visit(parsed.body)
+            evaluator = SafeEvaluator(
+                context
+            )  # Initialize the safe evaluator with context
+            dtype = evaluator.determine_output_dtype(
+                safe_expression
+            )  # Determine safe output dtype
+            context = {
+                name: raster.astype(dtype) for name, raster in context.items()
+            }  # Ensure all rasters are cast to the safe dtype
+            evaluator.context = context  # Update evaluator context with safe dtypes
+            result = evaluator.evaluate(
+                safe_expression
+            )  # Evaluate the expression safely
             return result
         except Exception as e:
             QgsMessageLog.logMessage(

@@ -84,6 +84,9 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # check for valid expression
         self.expressionBox.textChanged.connect(self.on_expression_changed)
 
+        # check for output path changes
+        self.outputPathLineEdit.textChanged.connect(self.on_output_path_changed)
+
     def closeEvent(self, event):
         self.closingPlugin.emit()
         event.accept()
@@ -241,6 +244,30 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 "Unsupported file format selected: {}".format(self.selectedFilter)
             )
 
+    def on_output_path_changed(self, text):
+        """Infer the driver based on the typed file extension."""
+        ext = os.path.splitext(text)[1].lower()
+
+        ext_to_filter = {
+            ".tif": "GeoTIFF (*.tif)",
+            ".tiff": "GeoTIFF (*.tif)",
+            ".img": "Erdas Imagine (*.img)",
+            ".asc": "ASCII Grid (*.asc)",
+            ".png": "PNG (*.png)",
+            ".dat": "ENVI (*.dat)",
+            ".nc": "NetCDF (*.nc)",
+            ".vrt": "VRT (*.vrt)",
+        }
+
+        if ext in ext_to_filter:
+            self.selectedFilter = ext_to_filter[ext]
+        elif ext == "":
+            # No extension → default to GeoTIFF
+            self.selectedFilter = "GeoTIFF (*.tif)"
+        else:
+            # Unknown extension → clear selectedFilter to trigger warning later
+            self.selectedFilter = None
+
     def on_ok_clicked(self):
         expression = self.expressionBox.toPlainText().strip()
         output_path = self.outputPathLineEdit.text().strip()
@@ -291,6 +318,11 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 print(
                     f"🔍 MAIN DEBUG: Raster object methods: {[m for m in dir(result) if 'save' in m.lower()]}"
                 )
+                # Ensure the correct extension is added if missing
+                output_path = self._add_file_extension(output_path, self.selectedFilter)
+                self.outputPathLineEdit.setText(
+                    output_path
+                )  # Update UI to show corrected path
                 raster_saver.save(result, output_path, driver=driver)
             except Exception as e:
                 print(f"Error saving file: {str(e)}")

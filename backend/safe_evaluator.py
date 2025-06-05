@@ -124,7 +124,7 @@ class SafeEvaluator(ast.NodeVisitor):
                 elif base_dtype == np.uint16:
                     return np.int32
                 else:
-                    return np.int64
+                    return np.float32
         if ast.Add in self.operations:  # Addition can lead to unsigned integer output
             if np.issubdtype(base_dtype, np.unsignedinteger):
                 if base_dtype == np.uint8:
@@ -132,6 +132,6 @@ class SafeEvaluator(ast.NodeVisitor):
                 elif base_dtype == np.uint16:
                     return np.uint32
                 else:
-                    return np.uint64
+                    return np.float32
 
         return base_dtype

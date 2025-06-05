@@ -3,6 +3,7 @@ import xarray as xr
 from .layer_manager import LayerManager
 from typing import Optional
 from .exceptions import RasterToolsUnavailableError, LayerNotFoundError
+from .lazy_manager import LazyLayerRegistry, LazyLayer
 
 
 class RasterManager:
@@ -11,7 +12,7 @@ class RasterManager:
     Uses a cache to avoid redundant conversions and improves performance.
     """
 
-    def __init__(self, layer_manager: LayerManager):
+    def __init__(self, layer_manager: LayerManager, lazy_registry: LazyLayerRegistry):
         """
         Initializes the RasterManager with a reference to the LayerManager.
 
@@ -19,31 +20,41 @@ class RasterManager:
             layer_manager (LayerManager): The manager used to retrieve QGIS raster layers.
         """
         self.layer_manager = layer_manager
+        self.lazy_registry = lazy_registry
         self._raster_cache = {}  # Cache of Raster objects keyed by layer name
 
     def get_raster(self, name: str) -> Optional[raster_tools.Raster]:
-        """
-        Retrieves a lazy `raster_tools.Raster` object for a given raster layer name.
+        print(f"get_raster called with name: {name}")
+        print(f"Current lazy registry: {self.lazy_registry.all_layers()}")
 
-        Args:
-            name (str): The name of the raster layer to retrieve.
-
-        Returns:
-            raster_tools.Raster or None: A `Raster` object if the layer exists; otherwise, None.
-        """
         if name in self._raster_cache:
+            print(f"Returning cached raster for {name}")
             return self._raster_cache[name]
 
-        # Attempt to retrieve the corresponding QGIS raster layer
+        base_name = name
+        if name.endswith(" (Lazy)"):
+            base_name = name[:-7]
+        print(f"Base name for lazy lookup: {base_name}")
+
+        print(f"Checking lazy registry for base_name: {base_name}")
+        has_lazy = self.lazy_registry.has(base_name)
+        print(f"lazy_registry.has({base_name}) returned: {has_lazy}")
+        if has_lazy:
+            print(f"Found lazy layer for base name: {base_name}")
+            lazy_layer = self.lazy_registry.get(base_name)
+            self._raster_cache[name] = lazy_layer.raster
+            return lazy_layer.raster
+
+        # Only fetch QGIS layer if lazy layer not found
         qgis_layer = self.layer_manager.get_raster_layer(name)
-        # If the layer is not found, raise an exception
         if not qgis_layer:
             raise LayerNotFoundError(f"Layer '{name}' not found in QGIS project.")
+        print(f"Found QGIS layer: {name}, source: {qgis_layer.source()}")
 
         try:
             raster = raster_tools.Raster(qgis_layer.source())
         except Exception as e:
-            # Wrap and raise a more informative error if Raster creation fails
+            print(f"Error creating raster_tools.Raster: {e}")
             raise RasterToolsUnavailableError(
                 f"Failed to create Raster from layer '{name}': {str(e)}"
             )
@@ -69,6 +80,16 @@ class RasterManager:
             else:
                 raise LayerNotFoundError(f"Layer '{name}' not found in QGIS project.")
         return rasters
+
+    def add_lazy_layer(self, name: str, raster: raster_tools.Raster):
+        """
+        Adds a raster as a lazy layer to the lazy registry.
+        Args:
+            name (str): The name of the lazy layer.
+            raster (raster_tools.Raster): The raster object to register.
+        """
+        lazy_layer = self.lazy_registry.register(name, raster)
+        return lazy_layer
 
     def reproject_if_needed(self, raster, target_crs):
         """Check if the raster's CRS matches the target CRS and reproject if necessary.

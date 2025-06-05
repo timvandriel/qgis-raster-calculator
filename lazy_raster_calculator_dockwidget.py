@@ -26,9 +26,14 @@ import os
 
 from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
-from qgis.core import QgsProject, QgsMapLayerType, QgsCoordinateReferenceSystem
+from qgis.core import (
+    QgsProject,
+    QgsMapLayerType,
+    QgsCoordinateReferenceSystem,
+    QgsRasterLayer,
+)
 from qgis.gui import QgsMessageBar, QgsProjectionSelectionDialog
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QInputDialog
 from .backend import *
 import traceback
 
@@ -87,6 +92,12 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # check for output path changes
         self.outputPathLineEdit.textChanged.connect(self.on_output_path_changed)
 
+        # Initialize managers
+        self.layer_manager = LayerManager()
+        self.lazy_registry = LazyLayerRegistry()
+        self.raster_manager = RasterManager(self.layer_manager, self.lazy_registry)
+        self.expression_evaluator = ExpressionEvaluator(self.raster_manager)
+
     def closeEvent(self, event):
         self.closingPlugin.emit()
         event.accept()
@@ -96,11 +107,22 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.populate_raster_layer_list()
 
     def populate_raster_layer_list(self):
-        """Populate the list widget with names of loaded raster layers."""
+        """Populate the list widget with names of all visible raster layers, including lazy ones."""
         self.rasterLayerListWidget.clear()
+
         for layer in QgsProject.instance().mapLayers().values():
             if layer.type() == QgsMapLayerType.RasterLayer:
-                self.rasterLayerListWidget.addItem(layer.name())
+                name = layer.name()
+
+                # Check if it's a lazy placeholder
+                if layer.customProperty("is_lazy", False):
+                    # Optionally, retrieve the original lazy name (in case display name differs)
+                    lazy_name = layer.customProperty("lazy_name", name)
+                    display_name = f"{lazy_name} (Lazy)"
+                else:
+                    display_name = name
+
+                self.rasterLayerListWidget.addItem(display_name)
 
     def handle_layer_double_click(self, item):
         """Handle double-click event on a layer name in the list widget.
@@ -217,7 +239,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 "ASCII Grid (*.asc);;"
                 "PNG (*.png);;"
                 "ENVI (*.dat);;"
-                "All Files (*.*)"
+                "All Files (*)"
             ),
             options=options,
         )
@@ -255,8 +277,6 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             ".asc": "ASCII Grid (*.asc)",
             ".png": "PNG (*.png)",
             ".dat": "ENVI (*.dat)",
-            ".nc": "NetCDF (*.nc)",
-            ".vrt": "VRT (*.vrt)",
         }
 
         if ext in ext_to_filter:
@@ -275,29 +295,48 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         crs_index = self.crsComboBox.currentIndex()
         target_crs_authid = self.crsComboBox.itemData(crs_index)
 
-        if not expression or not output_path:
+        if not expression or (not output_path and not is_lazy):
             QMessageBox.warning(
                 self,
                 "Missing Information",
-                "Please enter both an expression and output path.",
+                "Please enter both an expression and output path (unless creating a lazy layer).",
             )
             return
 
         try:
-            layer_manager = LayerManager()
 
-            # Prepare rasters
-            raster_manager = RasterManager(layer_manager)
-            expression_evaluator = ExpressionEvaluator(raster_manager)
+            # Prompt for name if lazy
+            result_name = None
+            if is_lazy:
+                result_name, ok = QInputDialog.getText(
+                    self, "Lazy Layer Name", "Enter a name for the lazy layer:"
+                )
+                if not ok or not result_name.strip():
+                    QMessageBox.warning(
+                        self, "Invalid Name", "Lazy layer name cannot be empty."
+                    )
+                    return
+                result_name = result_name.strip()
 
-            # Evaluate the expression with reprojection if needed
-            result = expression_evaluator.evaluate(expression, target_crs_authid)
+            # Evaluate (this registers the lazy layer if is_lazy)
+            result = self.expression_evaluator.evaluate(
+                expression,
+                target_crs_authid,
+                result_name=result_name if is_lazy else None,
+            )
 
             if is_lazy:
+                # Add placeholder fake QgsRasterLayer
+                uri = f"NotComputed:{result_name}"
+                fake_layer = QgsRasterLayer(uri, f"{result_name} (Lazy)")
+                QgsProject.instance().addMapLayer(fake_layer)
+
+                self.populate_raster_layer_list()
+
                 QMessageBox.information(
                     self,
                     "Lazy Evaluation",
-                    f"Lazy evaluation complete. Result object created: {result}",
+                    f"Lazy layer '{result_name}' has been created and added as a placeholder.",
                 )
                 return
 

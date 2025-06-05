@@ -8,7 +8,7 @@ class RasterSaver:
     """
     Handles saving and post-processing of raster results.
     Responsible for saving the raster output to disk,
-    adding it to the QGIS project, and setting the CRS if needed.
+    adding it to the QGIS project.
     """
 
     def save(self, raster, output_path: str, driver="GTiff"):

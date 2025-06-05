@@ -11,6 +11,13 @@ class LazyLayer:
     def __repr__(self):
         return f"<LazyLayer name='{self.name}' computed={self.computed}>"
 
+    @property
+    def display_name(self):
+        """
+        Appends "(Lazy)" to the layer name for display purposes.
+        """
+        return f"{self.name} (Lazy)" if not self.computed else self.name
+
 
 class LazyLayerRegistry:
     """
@@ -46,12 +53,21 @@ class LazyLayerRegistry:
             name (str): The name of the lazy layer to retrieve.
 
         Returns:
-            LazyLayer: The LazyLayer object if found, otherwise raises KeyError.
+            LazyLayer: The LazyLayer object if found.
         """
-        if name not in self._layers:
-            raise KeyError(f"Lazy layer '{name}' not found.")
-
         return self._layers[name]
+
+    def has(self, name: str) -> bool:
+        """
+        Checks if a lazy layer with the given name is registered.
+
+        Args:
+            name (str): The name of the lazy layer to check.
+
+        Returns:
+            bool: True if the lazy layer exists, False otherwise.
+        """
+        return name in self._layers
 
     def all_layers(self) -> list[LazyLayer]:
         """

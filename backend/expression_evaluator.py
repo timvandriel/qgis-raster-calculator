@@ -66,7 +66,9 @@ class ExpressionEvaluator:
         except SyntaxError:
             return False
 
-    def evaluate(self, expression: str, target_crs_authid: str = None):
+    def evaluate(
+        self, expression: str, target_crs_authid: str = None, result_name: str = None
+    ):
         """
         Evaluates a raster expression by:
         - Extracting layer names.
@@ -139,6 +141,13 @@ class ExpressionEvaluator:
             result = evaluator.evaluate(
                 safe_expression
             )  # Evaluate the expression safely
+            if result_name:
+                lazy_layer = self.raster_manager.add_lazy_layer(result_name, result)
+                print(f"Registered lazy layer: {lazy_layer}")
+                print(
+                    f"All lazy layers: {[layer.name for layer in self.raster_manager.lazy_registry.all_layers()]}"
+                )
+
             return result
         except Exception as e:
             QgsMessageLog.logMessage(

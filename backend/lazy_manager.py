@@ -111,3 +111,20 @@ class LazyLayerRegistry:
         This will remove all lazy layers from the registry.
         """
         self._layers.clear()
+
+
+# singleton instance for the lazy layer registry
+lazy_layer_registry = LazyLayerRegistry()
+
+
+def get_lazy_layer_registry() -> LazyLayerRegistry:
+    """
+    Returns the singleton instance of the LazyLayerRegistry.
+
+    This function provides access to the global lazy layer registry
+    used throughout the application.
+
+    Returns:
+        LazyLayerRegistry: The singleton instance of LazyLayerRegistry.
+    """
+    return lazy_layer_registry

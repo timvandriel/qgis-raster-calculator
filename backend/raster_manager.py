@@ -3,7 +3,7 @@ import xarray as xr
 from .layer_manager import LayerManager
 from typing import Optional
 from .exceptions import RasterToolsUnavailableError, LayerNotFoundError
-from .lazy_manager import LazyLayerRegistry, LazyLayer
+from .lazy_manager import get_lazy_layer_registry
 
 
 class RasterManager:
@@ -12,7 +12,7 @@ class RasterManager:
     Uses a cache to avoid redundant conversions and improves performance.
     """
 
-    def __init__(self, layer_manager: LayerManager, lazy_registry: LazyLayerRegistry):
+    def __init__(self, layer_manager: LayerManager):
         """
         Initializes the RasterManager with a reference to the LayerManager.
 
@@ -20,7 +20,7 @@ class RasterManager:
             layer_manager (LayerManager): The manager used to retrieve QGIS raster layers.
         """
         self.layer_manager = layer_manager
-        self.lazy_registry = lazy_registry
+        self.lazy_registry = get_lazy_layer_registry()
         self._raster_cache = {}  # Cache of Raster objects keyed by layer name
 
     def get_raster(self, name: str) -> Optional[raster_tools.Raster]:

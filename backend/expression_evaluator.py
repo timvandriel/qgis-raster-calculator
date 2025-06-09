@@ -48,7 +48,6 @@ class ExpressionEvaluator:
 
         try:
             # Replace quoted layer names with dummy identifiers like r_0, r_1, etc.
-            # This makes it syntactically valid Python code
             dummy_names = {}
 
             def replacer(match):

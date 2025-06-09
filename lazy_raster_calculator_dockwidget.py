@@ -26,13 +26,16 @@ import os
 
 from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
+from qgis.PyQt.QtWidgets import QAction
 from qgis.core import (
     QgsProject,
     QgsMapLayerType,
     QgsCoordinateReferenceSystem,
     QgsRasterLayer,
+    QgsMapLayer,
 )
 from qgis.gui import QgsMessageBar, QgsProjectionSelectionDialog
+from qgis.utils import iface
 from PyQt5.QtWidgets import QFileDialog, QMessageBox, QInputDialog
 from .backend import *
 import traceback
@@ -56,6 +59,9 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # http://doc.qt.io/qt-5/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+
+        self.layer_tree_view = iface.layerTreeView()
+        self.layer_tree_view.contextMenuAboutToShow.connect(self.on_context_menu)
 
         # check if layers were added or removed
         QgsProject.instance().layersAdded.connect(self.populate_raster_layer_list)
@@ -94,8 +100,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
         # Initialize managers
         self.layer_manager = LayerManager()
-        self.lazy_registry = LazyLayerRegistry()
-        self.raster_manager = RasterManager(self.layer_manager, self.lazy_registry)
+        self.raster_manager = RasterManager(self.layer_manager)
         self.expression_evaluator = ExpressionEvaluator(self.raster_manager)
 
     def closeEvent(self, event):
@@ -105,6 +110,19 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def showEvent(self, event):
         super().showEvent(event)
         self.populate_raster_layer_list()
+
+    def on_context_menu(self, menu):
+        layer = self.layer_tree_view.currentLayer()
+        if not layer:
+            return
+
+        if layer.type() == QgsMapLayer.RasterLayer and layer.customProperty(
+            "is_lazy", False
+        ):
+            menu.addSeparator()
+            compute = QAction("Compute Lazy Layer", menu)
+            compute.triggered.connect(lambda: self.compute_lazy_layer(layer))
+            menu.addAction(compute)
 
     def populate_raster_layer_list(self):
         """Populate the list widget with names of all visible raster layers, including lazy ones."""
@@ -329,6 +347,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 # Add placeholder fake QgsRasterLayer
                 uri = f"NotComputed:{result_name}"
                 fake_layer = QgsRasterLayer(uri, f"{result_name} (Lazy)")
+                fake_layer.setCustomProperty("is_lazy", True)
+                fake_layer.setCustomProperty("lazy_name", result_name)
                 QgsProject.instance().addMapLayer(fake_layer)
 
                 self.populate_raster_layer_list()

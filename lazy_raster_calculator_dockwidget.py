@@ -60,6 +60,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
 
+        # Hooking into the context menu of the layer tree
         self.layer_tree_view = iface.layerTreeView()
         self.layer_tree_view.contextMenuAboutToShow.connect(self.on_context_menu)
 
@@ -102,6 +103,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.layer_manager = LayerManager()
         self.raster_manager = RasterManager(self.layer_manager)
         self.expression_evaluator = ExpressionEvaluator(self.raster_manager)
+        self.lazy_registry = get_lazy_layer_registry()
+        self.raster_saver = RasterSaver()
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
@@ -112,6 +115,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.populate_raster_layer_list()
 
     def on_context_menu(self, menu):
+        """Adds custom action to the context menu for lazy raster layers"""
         layer = self.layer_tree_view.currentLayer()
         if not layer:
             return
@@ -123,6 +127,20 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             compute = QAction("Compute Lazy Layer", menu)
             compute.triggered.connect(lambda: self.compute_lazy_layer(layer))
             menu.addAction(compute)
+
+    def compute_lazy_layer(self, layer):
+        layer_name = layer.customProperty("lazy_name", None)
+        if not layer_name:
+            QMessageBox.warning(
+                self,
+                "Error",
+                "This layer does not have a valid lazy name. Cannot compute.",
+            )
+            return
+        raster = self.lazy_registry.get(layer_name)
+        raster = raster.raster
+        self.raster_saver.temp_output(raster, layer_name)
+        QgsProject.instance().removeMapLayer(layer.id())
 
     def populate_raster_layer_list(self):
         """Populate the list widget with names of all visible raster layers, including lazy ones."""
@@ -361,7 +379,6 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 return
 
             driver = self._select_driver()
-            raster_saver = RasterSaver()
             if driver == "PNG":
                 result = result.astype("uint16")  # PNG requires uint8 or uint16
             elif driver == "AAIGrid":
@@ -382,7 +399,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 self.outputPathLineEdit.setText(
                     output_path
                 )  # Update UI to show corrected path
-                raster_saver.save(result, output_path, driver=driver)
+                self.raster_saver.save(result, output_path, driver=driver)
             except Exception as e:
                 print(f"Error saving file: {str(e)}")
                 return

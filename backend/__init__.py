@@ -3,7 +3,7 @@ from .raster_manager import RasterManager
 from .expression_evaluator import ExpressionEvaluator
 from .raster_saver import RasterSaver
 from .safe_evaluator import SafeEvaluator
-from .lazy_manager import LazyLayerRegistry
+from .lazy_manager import LazyLayerRegistry, get_lazy_layer_registry
 from .exceptions import (
     RasterCalcError,
     LayerNotFoundError,
@@ -19,6 +19,7 @@ __all__ = [
     "RasterSaver",
     "SafeEvaluator",
     "LazyLayerRegistry",
+    "get_lazy_layer_registry",
     "RasterCalcError",
     "LayerNotFoundError",
     "InvalidExpressionError",

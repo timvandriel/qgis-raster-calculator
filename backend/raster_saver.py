@@ -2,6 +2,7 @@ import os
 from qgis.core import QgsProject, QgsRasterLayer, QgsMessageLog, Qgis
 from .exceptions import RasterCalcError, RasterSaveError
 import traceback
+import tempfile
 
 
 class RasterSaver:
@@ -59,7 +60,9 @@ class RasterSaver:
             if file_exists_after and file_size > 0:
                 # Automatically add the saved raster to the QGIS project
                 QgsProject.instance().addMapLayer(
-                    QgsRasterLayer(output_path, os.path.basename(output_path))
+                    QgsRasterLayer(
+                        output_path, os.path.basename(output_path).split(".")[0]
+                    )
                 )
                 # Log a success message in the QGIS message log
                 QgsMessageLog.logMessage(
@@ -85,3 +88,8 @@ class RasterSaver:
                 "Lazy Raster Calculator",
                 Qgis.Critical,
             )
+
+    def temp_output(self, raster, name):
+        output_path = os.path.join(tempfile.gettempdir(), f"{name}.tif")
+        print(f"🔍 DEBUG: Generated temporary output path: {output_path}")
+        self.save(raster, output_path)

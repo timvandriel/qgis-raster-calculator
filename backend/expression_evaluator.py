@@ -42,9 +42,15 @@ class ExpressionEvaluator:
         """
         Validates the expression syntax using Python's AST parser.
         Replaces quoted layer names with valid identifiers before parsing.
+        Also checks for invalid syntax such as adjacent quoted layer names.
         """
         if not expression:
             return False
+
+        # Check for adjacent quoted layer names with no operator between them
+        adjacent_layer_pattern = r'"[^"]+"\s*"[^"]+"'
+        if re.search(adjacent_layer_pattern, expression):
+            return False  # Found two quoted names with no operator in between
 
         try:
             # Replace quoted layer names with dummy identifiers like r_0, r_1, etc.
@@ -58,7 +64,7 @@ class ExpressionEvaluator:
 
             expr_cleaned = re.sub(r'"([^"]+)"', replacer, expression)
 
-            # Try parsing the expression
+            # Try parsing the cleaned expression
             ast.parse(expr_cleaned, mode="eval")
             return True
 

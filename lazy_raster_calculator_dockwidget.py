@@ -82,12 +82,12 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.closeParenButton.clicked.connect(lambda: self.insert_operator(")"))
         self.clearButton.clicked.connect(self.clear_expression)
 
-        # button for ouput path
-        self.outputPathButton.clicked.connect(self.select_output_path)
-
         # crs button and combobox
         self.crsSelectButton.clicked.connect(self.open_crs_dialog)
         self.populate_crs_combobox()
+
+        # dtypes combobox
+        self.populate_dtypes_combobox()
 
         # okay and cancel buttons
         self.okButton.clicked.connect(self.on_ok_clicked)
@@ -95,9 +95,6 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
         # check for valid expression
         self.expressionBox.textChanged.connect(self.on_expression_changed)
-
-        # check for output path changes
-        self.outputPathLineEdit.textChanged.connect(self.on_output_path_changed)
 
         # Initialize managers
         self.layer_manager = LayerManager()
@@ -115,18 +112,37 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.populate_raster_layer_list()
 
     def on_context_menu(self, menu):
-        """Adds custom action to the context menu for lazy raster layers"""
+        """Adds custom actions to the context menu for lazy raster layers only."""
         layer = self.layer_tree_view.currentLayer()
         if not layer:
-            return
+            return  # leave the default menu alone
 
+        # Only modify the menu for lazy raster layers
         if layer.type() == QgsMapLayer.RasterLayer and layer.customProperty(
             "is_lazy", False
         ):
-            menu.addSeparator()
-            compute = QAction("Compute Lazy Layer", menu)
-            compute.triggered.connect(lambda: self.compute_lazy_layer(layer))
-            menu.addAction(compute)
+            # Add your custom actions if not already present
+            existing_actions = [action.text() for action in menu.actions()]
+
+            if "Compute Lazy Layer" not in existing_actions:
+                compute = QAction("Compute Lazy Layer", menu)
+                compute.triggered.connect(lambda: self.compute_lazy_layer(layer))
+                menu.addAction(compute)
+
+            if "Export Lazy Layer..." not in existing_actions:
+                export = QAction("Export Lazy Layer...", menu)
+                export.triggered.connect(lambda: self.export_lazy_layer(layer))
+                menu.addAction(export)
+
+            # Optionally remove non-lazy-specific actions *only for lazy layers*
+            for action in menu.actions()[:]:  # make a copy of the list
+                if (
+                    action.text() not in ["Compute Lazy Layer", "Export Lazy Layer..."]
+                    and not action.isSeparator()
+                ):
+                    menu.removeAction(action)
+
+        # For non-lazy layers, do nothing — QGIS will show its default menu
 
     def compute_lazy_layer(self, layer):
         layer_name = layer.customProperty("lazy_name", None)
@@ -137,10 +153,14 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 "This layer does not have a valid lazy name. Cannot compute.",
             )
             return
+
         raster = self.lazy_registry.get(layer_name)
         raster = raster.raster
         self.raster_saver.temp_output(raster, layer_name)
         QgsProject.instance().removeMapLayer(layer.id())
+
+    def export_lazy_layer(self, layer):
+        pass
 
     def populate_raster_layer_list(self):
         """Populate the list widget with names of all visible raster layers, including lazy ones."""
@@ -243,99 +263,38 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             project_crs.authid(),
         )
 
-    def _add_file_extension(self, file_name, selected_filter):
-        """Add appropriate file extension based on the selected filter if missing."""
-        if selected_filter.startswith("GeoTIFF") and not file_name.endswith(".tif"):
-            file_name += ".tif"
-        elif selected_filter.startswith("Erdas Imagine") and not file_name.endswith(
-            ".img"
-        ):
-            file_name += ".img"
-        elif selected_filter.startswith("ASCII Grid") and not file_name.endswith(
-            ".asc"
-        ):
-            file_name += ".asc"
-        elif selected_filter.startswith("PNG") and not file_name.endswith(".png"):
-            file_name += ".png"
-        elif selected_filter.startswith("ENVI") and not file_name.endswith(".dat"):
-            file_name += ".dat"
-        return file_name
-
-    def select_output_path(self):
-        """Open a file dialog to select the output path for the raster."""
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        file_name, selected_filter = QFileDialog.getSaveFileName(
-            self,
-            "Select Output Path",
-            "",
-            (
-                "GeoTIFF (*.tif);;"
-                "Erdas Imagine (*.img);;"
-                "ASCII Grid (*.asc);;"
-                "PNG (*.png);;"
-                "ENVI (*.dat);;"
-                "All Files (*)"
-            ),
-            options=options,
-        )
-        if file_name:
-            self.selectedFilter = selected_filter
-
-            file_name = self._add_file_extension(file_name, selected_filter)
-            self.outputPathLineEdit.setText(file_name)
-
-    def _select_driver(self):
-        f = self.selectedFilter
-        if f.startswith("GeoTIFF"):
-            return "GTiff"
-        elif f.startswith("Erdas Imagine"):
-            return "HFA"
-        elif f.startswith("ASCII Grid"):
-            return "AAIGrid"
-        elif f.startswith("PNG"):
-            return "PNG"
-        elif f.startswith("ENVI"):
-            return "ENVI"
-        else:
-            raise ValueError(
-                "Unsupported file format selected: {}".format(self.selectedFilter)
-            )
-
-    def on_output_path_changed(self, text):
-        """Infer the driver based on the typed file extension."""
-        ext = os.path.splitext(text)[1].lower()
-
-        ext_to_filter = {
-            ".tif": "GeoTIFF (*.tif)",
-            ".tiff": "GeoTIFF (*.tif)",
-            ".img": "Erdas Imagine (*.img)",
-            ".asc": "ASCII Grid (*.asc)",
-            ".png": "PNG (*.png)",
-            ".dat": "ENVI (*.dat)",
-        }
-
-        if ext in ext_to_filter:
-            self.selectedFilter = ext_to_filter[ext]
-        elif ext == "":
-            # No extension → default to GeoTIFF
-            self.selectedFilter = "GeoTIFF (*.tif)"
-        else:
-            # Unknown extension → clear selectedFilter to trigger warning later
-            self.selectedFilter = None
+    def populate_dtypes_combobox(self):
+        dtypes = [
+            "<AUTO>",
+            "Byte",
+            "Int16",
+            "UInt16",
+            "UInt32",
+            "Int32",
+            "Float32",
+            "Float64",
+            "CInt16",
+            "CInt32",
+            "CFloat32",
+            "CFloat64",
+            "Int8",
+        ]
+        for dtype in dtypes:
+            self.dtypeComboBox.addItem(dtype)
+        self.dtypeComboBox.setCurrentIndex(0)  # Set default to <AUTO>
 
     def on_ok_clicked(self):
         expression = self.expressionBox.toPlainText().strip()
-        output_path = self.outputPathLineEdit.text().strip()
-        is_lazy = self.lazyRadioButton.isChecked()
+        is_lazy = self.lazyCheckBox.isChecked()
         crs_index = self.crsComboBox.currentIndex()
         target_crs_authid = self.crsComboBox.itemData(crs_index)
+        d_type = self.dtypeComboBox.currentText()
 
-        if not expression or (not output_path and not is_lazy):
+        if not expression:
             QMessageBox.warning(
                 self,
                 "Missing Information",
-                "Please enter both an expression and output path (unless creating a lazy layer).",
+                "Please enter an expression before proceeding.",
             )
             return
 
@@ -352,13 +311,22 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                         self, "Invalid Name", "Lazy layer name cannot be empty."
                     )
                     return
-                result_name = result_name.strip()
+            else:
+                result_name, ok = QInputDialog.getText(
+                    self, "Raster Layer Name", "Enter a name for the raster layer:"
+                )
+                if not ok or not result_name.strip():
+                    QMessageBox.warning(
+                        self, "Invalid Name", "Raster layer name cannot be empty."
+                    )
+                    return
+            result_name = result_name.strip()
 
-            # Evaluate (this registers the lazy layer if is_lazy)
+            # Evaluate
             result = self.expression_evaluator.evaluate(
                 expression,
                 target_crs_authid,
-                result_name=result_name if is_lazy else None,
+                d_type=d_type,
             )
 
             if is_lazy:
@@ -368,8 +336,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 fake_layer.setCustomProperty("is_lazy", True)
                 fake_layer.setCustomProperty("lazy_name", result_name)
                 QgsProject.instance().addMapLayer(fake_layer)
-
-                self.populate_raster_layer_list()
+                self.raster_manager.add_lazy_layer(result_name.strip(), result)
 
                 QMessageBox.information(
                     self,
@@ -377,41 +344,16 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                     f"Lazy layer '{result_name}' has been created and added as a placeholder.",
                 )
                 return
-
-            driver = self._select_driver()
-            if driver == "PNG":
-                result = result.astype("uint16")  # PNG requires uint8 or uint16
-            elif driver == "AAIGrid":
-                result = result.astype("float64")  # AAIGrid requires float64
             try:
-                # Add this right before raster_saver.save(result, output_path, driver=driver)
-                print(
-                    f"🔍 MAIN DEBUG: About to save with driver='{driver}' from filter='{self.selectedFilter}'"
-                )
-                print(f"🔍 MAIN DEBUG: Output path='{output_path}'")
-
-                # Quick test to see what methods the raster object has
-                print(
-                    f"🔍 MAIN DEBUG: Raster object methods: {[m for m in dir(result) if 'save' in m.lower()]}"
-                )
-                # Ensure the correct extension is added if missing
-                output_path = self._add_file_extension(output_path, self.selectedFilter)
-                self.outputPathLineEdit.setText(
-                    output_path
-                )  # Update UI to show corrected path
-                self.raster_saver.save(result, output_path, driver=driver)
+                self.raster_saver.temp_output(result, result_name)
             except Exception as e:
                 print(f"Error saving file: {str(e)}")
                 return
-            if os.path.exists(output_path):
-                print("✅ File was saved.")
-            else:
-                print("❌ Save operation failed silently.")
 
             QMessageBox.information(
                 self,
                 "Success",
-                f"Raster saved to:\n{output_path}",
+                f"Raster added to project",
             )
 
         except InvalidExpressionError as e:
@@ -433,9 +375,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
     def on_cancel_clicked(self):
         """Handle cancel button click event"""
         self.clear_expression()
-        self.outputPathLineEdit.clear()
         self.crsComboBox.setCurrentIndex(0)
-        self.lazyRadioButton.setChecked(True)
+        self.lazyCheckBox.setChecked(True)
         self.populate_raster_layer_list()
         self.populate_crs_combobox()
         self.update_expression_status(False)

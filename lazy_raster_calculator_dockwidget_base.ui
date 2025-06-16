@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>350</width>
-    <height>568</height>
+    <height>600</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -19,7 +19,7 @@
   <property name="minimumSize">
    <size>
     <width>350</width>
-    <height>560</height>
+    <height>600</height>
    </size>
   </property>
   <property name="maximumSize">
@@ -258,6 +258,9 @@
             <property name="editable">
              <bool>true</bool>
             </property>
+            <property name="frame">
+             <bool>true</bool>
+            </property>
            </widget>
           </item>
           <item row="0" column="2">
@@ -289,19 +292,22 @@
            <number>0</number>
           </property>
           <item row="0" column="0">
-           <widget class="QLabel" name="outputPathLabel">
+           <widget class="QLabel" name="label_2">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="text">
-             <string>Output Path:</string>
+             <string>Data Type:</string>
             </property>
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QLineEdit" name="outputPathLineEdit"/>
-          </item>
-          <item row="0" column="2">
-           <widget class="QToolButton" name="outputPathButton">
-            <property name="text">
-             <string>...</string>
+           <widget class="QComboBox" name="dtypeComboBox">
+            <property name="editable">
+             <bool>false</bool>
             </property>
            </widget>
           </item>
@@ -327,7 +333,7 @@
            <number>0</number>
           </property>
           <item row="0" column="0">
-           <widget class="QRadioButton" name="lazyRadioButton">
+           <widget class="QCheckBox" name="lazyCheckBox">
             <property name="text">
              <string>Lazy Layer</string>
             </property>
@@ -336,17 +342,17 @@
             </property>
            </widget>
           </item>
+          <item row="0" column="3">
+           <widget class="QPushButton" name="cancelButton">
+            <property name="text">
+             <string>Cancel</string>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="1">
            <widget class="QPushButton" name="okButton">
             <property name="text">
              <string>Okay</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QPushButton" name="cancelButton">
-            <property name="text">
-             <string>Cancel</string>
             </property>
            </widget>
           </item>

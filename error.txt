@@ -1,0 +1,72 @@
+2025-06-12T14:17:16     CRITICAL    Error evaluating expression: Automatic alignment is not supported for in-place operations.
+             Consider aligning the indices manually or using a not-in-place operation.
+             See https://github.com/pydata/xarray/issues/3910 for more explanations.
+             Traceback (most recent call last):
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/lib/xarray/core/dataarray.py", line 4715, in _inplace_binary_op
+              with self.coords._merge_inplace(other_coords):
+              File "/Applications/QGIS-LTR.app/Contents/MacOS/../Resources/python/contextlib.py", line 117, in __enter__
+              return next(self.gen)
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/lib/xarray/core/coordinates.py", line 484, in _merge_inplace
+              variables, indexes = merge_coordinates_without_align(
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/lib/xarray/core/merge.py", line 413, in merge_coordinates_without_align
+              merged_coords, merged_indexes = merge_collected(
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/lib/xarray/core/merge.py", line 269, in merge_collected
+              raise MergeError(
+             xarray.core.merge.MergeError: conflicting values/indexes on objects to be combined fo coordinate 'y'
+             first index: PandasIndex(Index([ 38.00000000000001, 37.99972222222223, 37.99944444444445,
+              37.999166666666675, 37.9988888888889, 37.99861111111112,
+              37.99833333333334, 37.99805555555556, 37.997777777777785,
+              37.99750000000001,
+              ...
+              37.002500000000005, 37.00222222222223, 37.001944444444455,
+              37.00166666666667, 37.0013888888889, 37.001111111111115,
+              37.00083333333334, 37.000555555555565, 37.00027777777778,
+              37.00000000000001],
+              dtype='float64', name='y', length=3601))
+             second index: PandasIndex(Index([ 38.00000000000001, 37.99972222222223, 37.99944444444445,
+              37.999166666666675, 37.9988888888889, 37.99861111111112,
+              37.99833333333334, 37.99805555555556, 37.997777777777785,
+              37.99750000000001,
+              ...
+              37.002500000000005, 37.00222222222223, 37.00194444444445,
+              37.00166666666667, 37.0013888888889, 37.001111111111115,
+              37.00083333333334, 37.000555555555565, 37.00027777777778,
+              37.00000000000001],
+              dtype='float64', name='y', length=3601))
+             first variable: 
+             array([38. , 37.999722, 37.999444, ..., 37.000556, 37.000278, 37. ])
+             Attributes:
+              units: degrees_north
+              resolution: -0.0002777777777777778
+              crs: GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,2...
+             second variable: 
+             array([38. , 37.999722, 37.999444, ..., 37.000556, 37.000278, 37. ])
+             
+             
+             The above exception was the direct cause of the following exception:
+             
+             Traceback (most recent call last):
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/backend/expression_evaluator.py", line 150, in evaluate
+              result = evaluator.evaluate(
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/backend/safe_evaluator.py", line 25, in evaluate
+              return self.visit(tree.body)
+              File "/Applications/QGIS-LTR.app/Contents/MacOS/../Resources/python/ast.py", line 407, in visit
+              return visitor(node)
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/backend/safe_evaluator.py", line 32, in visit_BinOp
+              return allowed_operators[op_type](left, right)
+              File "/Applications/QGIS-LTR.app/Contents/MacOS/lib/python3.9/site-packages/numpy/lib/mixins.py", line 21, in func
+              return ufunc(self, other)
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/lib/raster_tools/raster.py", line 326, in __array_ufunc__
+              return _apply_ufunc(ufunc, self, left, right=right, out=out)
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/lib/raster_tools/raster.py", line 223, in _apply_ufunc
+              xmask = merge_masks([r.xmask for r in args if isinstance(r, Raster)])
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/lib/raster_tools/utils.py", line 63, in merge_masks
+              mask |= m
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/lib/xarray/core/_typed_ops.py", line 363, in __ior__
+              return self._inplace_binary_op(other, operator.ior)
+              File "/Users/timvandriel/Library/Application Support/QGIS/QGIS3/profiles/default/python/plugins/lazy_raster_calculator/lib/xarray/core/dataarray.py", line 4718, in _inplace_binary_op
+              raise MergeError(
+             xarray.core.merge.MergeError: Automatic alignment is not supported for in-place operations.
+             Consider aligning the indices manually or using a not-in-place operation.
+             See https://github.com/pydata/xarray/issues/3910 for more explanations.
+             

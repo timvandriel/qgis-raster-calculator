@@ -72,7 +72,10 @@ class ExpressionEvaluator:
             return False
 
     def evaluate(
-        self, expression: str, target_crs_authid: str = None, result_name: str = None
+        self,
+        expression: str,
+        target_crs_authid: str = None,
+        d_type: str = "<AUTO>",
     ):
         """
         Evaluates a raster expression by:
@@ -84,6 +87,8 @@ class ExpressionEvaluator:
 
         Args:
             expression (str): The raster math expression, with layer names in quotes.
+            target_crs_authid (str, optional): The target CRS authority ID for reprojection.
+            d_type (str, optional): The data type to cast the resulting raster to. Defaults to "<AUTO>".
 
         Returns:
             raster_tools.Raster: The resulting lazily-evaluated raster object.
@@ -116,6 +121,12 @@ class ExpressionEvaluator:
         ref_name, raster_objects = self.raster_manager._align_to_smallest_extent(
             raster_objects
         )
+        # Step 4.5c: Cast to data type if specified
+        d_type = self.raster_manager.get_dtype(d_type)
+        if d_type != "<AUTO>":
+            raster_objects = {
+                name: raster.astype(d_type) for name, raster in raster_objects.items()
+            }
 
         # Step 5: Create a safe evaluation context
         context = {}  # maps safe variable names to Raster objects
@@ -136,23 +147,9 @@ class ExpressionEvaluator:
             evaluator = SafeEvaluator(
                 context
             )  # Initialize the safe evaluator with context
-            dtype = evaluator.determine_output_dtype(
-                safe_expression
-            )  # Determine safe output dtype
-            context = {
-                name: raster.astype(dtype) for name, raster in context.items()
-            }  # Ensure all rasters are cast to the safe dtype
-            evaluator.context = context  # Update evaluator context with safe dtypes
             result = evaluator.evaluate(
                 safe_expression
             )  # Evaluate the expression safely
-            if result_name:
-                lazy_layer = self.raster_manager.add_lazy_layer(result_name, result)
-                print(f"Registered lazy layer: {lazy_layer}")
-                print(
-                    f"All lazy layers: {[layer.name for layer in self.raster_manager.lazy_registry.all_layers()]}"
-                )
-
             return result
         except Exception as e:
             QgsMessageLog.logMessage(

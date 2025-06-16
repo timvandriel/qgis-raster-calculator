@@ -1,5 +1,6 @@
 import raster_tools
 import xarray as xr
+import numpy as np
 from .layer_manager import LayerManager
 from typing import Optional
 from .exceptions import RasterToolsUnavailableError, LayerNotFoundError
@@ -21,6 +22,20 @@ class RasterManager:
         """
         self.layer_manager = layer_manager
         self.lazy_registry = get_lazy_layer_registry()
+        self.dtype = {
+            "Byte": "uint8",
+            "Int16": "int16",
+            "UInt16": "uint16",
+            "UInt32": "uint32",
+            "Int32": "int32",
+            "Float32": "float32",
+            "Float64": "float64",
+            "CInt16": "complex64",
+            "CInt32": "complex128",
+            "CFloat32": "complex64",
+            "CFloat64": "complex128",
+            "Int8": "int8",
+        }
         self._raster_cache = {}  # Cache of Raster objects keyed by layer name
 
     def get_raster(self, name: str) -> Optional[raster_tools.Raster]:
@@ -139,23 +154,72 @@ class RasterManager:
         for name, raster in rasters.items():
             if ref_grid == raster.geobox:
                 aligned_rasters[name] = raster
+                print(f"Raster '{name}' already aligned to reference '{ref_name}'.")
             else:
                 # Reproject
+                print(
+                    f"Reprojecting raster '{name}' to match reference '{ref_name}' geobox."
+                )
                 reprojected = raster.reproject(crs_or_geobox=ref_grid)
 
-                # Wrap dask array in xarray DataArray with coords/dims from reference
-                xr_da = xr.DataArray(
-                    reprojected.data,
-                    coords={
-                        "x": ref_raster.xdata.coords["x"],
-                        "y": ref_raster.xdata.coords["y"],
-                        # Add other coords if necessary
-                    },
-                    dims=ref_raster.xdata.dims,
+                # # Wrap dask array in xarray DataArray with coords/dims from reference
+                # xr_da = xr.DataArray(
+                #     reprojected.data,
+                #     coords={
+                #         "x": ref_raster.xdata.coords["x"],
+                #         "y": ref_raster.xdata.coords["y"],
+                #         # Add other coords if necessary
+                #     },
+                #     dims=ref_raster.xdata.dims,
+                # )
+
+                # aligned_rasters[name] = raster_tools.Raster(
+                #     xr_da
+                # )  # Wrap in Raster object
+                ref_coords_y = ref_raster.xdata.coords["y"].values
+                new_coords_y = reprojected.xdata.coords["y"].values
+                self._compare_coords(
+                    ref_coords_y, new_coords_y, axis="y", name=name, ref_name=ref_name
+                )
+                ref_coords_x = ref_raster.xdata.coords["x"].values
+                new_coords_x = reprojected.xdata.coords["x"].values
+                self._compare_coords(
+                    ref_coords_x, new_coords_x, axis="x", name=name, ref_name=ref_name
                 )
 
-                aligned_rasters[name] = raster_tools.Raster(
-                    xr_da
-                )  # Wrap in Raster object
+                aligned_rasters[name] = reprojected
 
         return ref_name, aligned_rasters
+
+    def _compare_coords(
+        self, ref_coords, other_coords, axis="y", name="unnamed", ref_name="reference"
+    ):
+        diffs = np.abs(ref_coords - other_coords)
+        max_diff = np.max(diffs)
+        mean_diff = np.mean(diffs)
+        num_different = np.count_nonzero(diffs > 0)
+
+        print(
+            f"\n[Coord Check] Axis '{axis}' for raster '{name}' compared to '{ref_name}':"
+        )
+        print(f"  Total values: {len(ref_coords)}")
+        print(f"  Values differing: {num_different}")
+        print(f"  Max difference: {max_diff:.15f}")
+        print(f"  Mean difference: {mean_diff:.15f}")
+
+        if num_different:
+            decimals = -np.floor(np.log10(max_diff)).astype(int)
+            print(f"  => Coordinates differ at ~{decimals} decimal places")
+
+    def get_dtype(self, dtype_name: str) -> str:
+        """
+        Returns the numpy dtype corresponding to a QGIS raster data type name.
+
+        Args:
+            dtype_name (str): The QGIS raster data type name (e.g., "Byte", "Int16").
+
+        Returns:
+            str: The corresponding numpy dtype name.
+        """
+        return self.dtype.get(dtype_name, "<AUTO>")
+        print(f"Safe expression for eval: {safe_expression}")

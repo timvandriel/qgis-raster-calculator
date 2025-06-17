@@ -161,9 +161,33 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             )
             return
 
-        raster = self.lazy_registry.get(layer_name)
-        self.raster_saver.temp_output(raster, layer_name)
-        QgsProject.instance().removeMapLayer(layer.id())
+        try:
+            # Retrieve and copy to break from Dask graph
+            lazy_layer = self.lazy_registry.get(layer_name)
+            raster = lazy_layer.copy()
+
+            # Save computed result to temporary location
+            self.raster_saver.temp_output(raster, layer_name)
+
+            # Only clean up if computation succeeded
+            if layer.id() in [
+                lyr.id() for lyr in QgsProject.instance().mapLayers().values()
+            ]:
+                QgsProject.instance().removeMapLayer(
+                    layer.id()
+                )  # Remove the placeholder layer
+            try:
+                self.lazy_registry.remove(layer_name)
+            except KeyError:
+                pass  # Already removed or never registered
+            del raster  # Free memory
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Compute Error",
+                f"An error occurred while computing the lazy layer:\n{str(e)}",
+            )
 
     def export_lazy_layer(self, layer):
         layer_name = layer.customProperty("lazy_name", None)
@@ -174,7 +198,18 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 "This layer does not have a valid lazy name. Cannot export.",
             )
             return
-        raster = self.lazy_registry.get(layer_name)
+
+        # Try to copy raster safely
+        try:
+            lazy_layer = self.lazy_registry.get(layer_name)
+            raster = lazy_layer.copy()
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error", f"Failed to prepare raster for export:\n{str(e)}"
+            )
+            return
+
+        # Get file path from user
         suggested_filename = f"{layer_name}.tif"
         file_path, _ = QFileDialog.getSaveFileName(
             self,
@@ -184,6 +219,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         )
         if not file_path:
             return
+
+        # Determine driver
         ext = os.path.splitext(file_path)[-1].lower()
         if ext in [".tif", ".tiff"]:
             driver = "GTiff"
@@ -203,31 +240,28 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             QMessageBox.warning(
                 self,
                 "Unsupported Data Type",
-                "PNG format only supports uint8 or uint16 data types. Please choose a different format or cast to uint8 or uint16.",
+                "PNG format only supports uint8 or uint16 data types. Please choose a different format or cast the raster.",
             )
             return
 
         try:
-            print(f"🧪 Saving raster to: {file_path} using driver: {driver}")
-            print(f"🧪 Raster object type: {type(raster)}")
-            print(
-                f"🧪 Output directory exists: {os.path.exists(os.path.dirname(file_path))}"
-            )
-
             raster.save(file_path, driver=driver)
 
             if not os.path.exists(file_path):
-                raise RuntimeError(
-                    "File was not created. Possibly driver failed silently."
-                )
+                raise RuntimeError("Export failed: file was not created.")
 
             QMessageBox.information(
                 self,
                 "Export Successful",
-                f"Lazy layer '{layer_name}' has been exported successfully to {file_path}.",
+                f"Lazy layer '{layer_name}' exported successfully to:\n{file_path}",
             )
 
-            QgsProject.instance().removeMapLayer(layer.id())
+            # clean up after successful save
+            QgsProject.instance().removeMapLayer(
+                layer.id()
+            )  # Remove the placeholder layer
+            self.lazy_registry.remove(layer_name)
+            del raster  # free memory
 
         except Exception as e:
             tb = traceback.format_exc()

@@ -20,8 +20,8 @@ class RasterSaver:
         raster: The raster object to be saved (from raster-tools).
         output_path (str): The file path where the raster should be saved.
         driver (str): The raster file format driver (default is "GTiff").
-        Raises:
-        RasterSaveError: If the raster cannot be saved.
+        Returns:
+            QgsRasterLayer: The added raster layer in the QGIS project, or None if save failed.
         """
         try:
             # DEBUG: Check file before save
@@ -38,24 +38,24 @@ class RasterSaver:
 
             # Only proceed with QGIS layer addition if file actually exists
             if file_exists_after and file_size > 0:
-                # Automatically add the saved raster to the QGIS project
-                QgsProject.instance().addMapLayer(
-                    QgsRasterLayer(
-                        output_path, os.path.basename(output_path).split(".")[0]
-                    )
+                layer = QgsRasterLayer(
+                    output_path, os.path.basename(output_path).split(".")[0]
                 )
-                # Log a success message in the QGIS message log
+                QgsProject.instance().addMapLayer(layer)
                 QgsMessageLog.logMessage(
                     f"Raster saved to {output_path}",
                     "Lazy Raster Calculator",
                     Qgis.Info,
                 )
+                return layer  # Return the layer
+                # Log a success message in the QGIS message log
             else:
                 QgsMessageLog.logMessage(
                     f"Warning: Save operation completed but file was not created: {output_path}",
                     "Lazy Raster Calculator",
                     Qgis.Warning,
                 )
+                return None  # Return None if file was not created
 
         except Exception as e:
             print(f"❌ DEBUG: Exception occurred: {type(e).__name__}: {str(e)}")
@@ -74,8 +74,9 @@ class RasterSaver:
         raster: The raster object to be saved (from raster-tools).
         name (str): The name to use for the temporary file.
         Returns:
-        None
+            tuple: A tuple containing the QgsRasterLayer and the output path.
         """
         output_path = os.path.join(tempfile.gettempdir(), f"{name}.tif")
         print(f"🔍 DEBUG: Generated temporary output path: {output_path}")
-        self.save(raster, output_path)
+        layer = self.save(raster, output_path)
+        return layer, output_path

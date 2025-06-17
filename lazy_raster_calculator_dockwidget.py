@@ -64,6 +64,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.layer_tree_view = iface.layerTreeView()
         self.layer_tree_view.contextMenuAboutToShow.connect(self.on_context_menu)
 
+        self.temp_files = {}  # Dictionary to store temporary file paths by layer ID
+
         # check if user removed the lazy layer
         QgsProject.instance().layerWillBeRemoved.connect(self.on_layer_removed)
 
@@ -166,20 +168,13 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             lazy_layer = self.lazy_registry.get(layer_name)
             raster = lazy_layer.copy()
 
-            # Save computed result to temporary location
-            self.raster_saver.temp_output(raster, layer_name)
+            # Save computed result to temporary location and get new layer
+            new_layer, temp_path = self.raster_saver.temp_output(raster, layer_name)
+            self.temp_files[new_layer.id()] = temp_path
 
-            # Only clean up if computation succeeded
-            if layer.id() in [
-                lyr.id() for lyr in QgsProject.instance().mapLayers().values()
-            ]:
-                QgsProject.instance().removeMapLayer(
-                    layer.id()
-                )  # Remove the placeholder layer
-            try:
-                self.lazy_registry.remove(layer_name)
-            except KeyError:
-                pass  # Already removed or never registered
+            # Remove the old placeholder (not the new one)
+            QgsProject.instance().removeMapLayer(layer.id())
+
             del raster  # Free memory
 
         except Exception as e:
@@ -260,7 +255,6 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             QgsProject.instance().removeMapLayer(
                 layer.id()
             )  # Remove the placeholder layer
-            self.lazy_registry.remove(layer_name)
             del raster  # free memory
 
         except Exception as e:
@@ -273,20 +267,32 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             )
 
     def on_layer_removed(self, layer_id):
-        """Handle the removal of a layer from the project.
-        This method checks if the removed layer was a lazy layer and removes it from the lazy registry.
+        """
+        Handle the removal of a layer from the project.
+        This method:
+        1. Removes the lazy layer from the registry if it's a lazy layer.
+        2. Deletes any associated temporary file if tracked.
         Args:
             layer_id (str): The ID of the layer that was removed.
         """
         layer = QgsProject.instance().mapLayer(layer_id)
         if not layer:
             return
-        # Check if the removed layer was a lazy layer
+
+        # 1. Remove from lazy registry if applicable
         lazy_name = layer.customProperty("lazy_name", None)
         if lazy_name and self.lazy_registry.has(lazy_name):
-            # Remove the lazy layer from the registry
             self.lazy_registry.remove(lazy_name)
             print(f"Lazy layer '{lazy_name}' removed from registry.")
+
+        # 2. Delete associated temporary file if tracked
+        tmp_path = self.temp_files.pop(layer_id, None)
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+                print(f"Deleted temporary file: {tmp_path}")
+            except Exception as e:
+                print(f"Failed to delete temp file {tmp_path}: {e}")
 
     def populate_raster_layer_list(self):
         """Populate the list widget with names of all visible raster layers, including lazy ones."""
@@ -471,7 +477,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 )
                 return
             try:
-                self.raster_saver.temp_output(result, result_name)
+                layer, temp_path = self.raster_saver.temp_output(result, result_name)
+                self.temp_files[layer.id()] = temp_path
             except Exception as e:
                 print(f"Error saving file: {str(e)}")
                 return

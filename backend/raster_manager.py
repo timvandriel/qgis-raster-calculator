@@ -57,8 +57,8 @@ class RasterManager:
         if has_lazy:
             print(f"Found lazy layer for base name: {base_name}")
             lazy_layer = self.lazy_registry.get(base_name)
-            self._raster_cache[name] = lazy_layer.raster
-            return lazy_layer.raster
+            self._raster_cache[name] = lazy_layer
+            return lazy_layer
 
         # Only fetch QGIS layer if lazy layer not found
         qgis_layer = self.layer_manager.get_raster_layer(name)
@@ -148,6 +148,8 @@ class RasterManager:
         )
         # Use the reference raster's geobox for alignment
         ref_grid = ref_raster.geobox
+        ref_coords_x = ref_raster.xdata.coords["x"].values
+        ref_coords_y = ref_raster.xdata.coords["y"].values
         aligned_rasters = {}
 
         # Align all rasters to the reference geobox
@@ -161,33 +163,41 @@ class RasterManager:
                     f"Reprojecting raster '{name}' to match reference '{ref_name}' geobox."
                 )
                 reprojected = raster.reproject(crs_or_geobox=ref_grid)
-
-                # # Wrap dask array in xarray DataArray with coords/dims from reference
-                # xr_da = xr.DataArray(
-                #     reprojected.data,
-                #     coords={
-                #         "x": ref_raster.xdata.coords["x"],
-                #         "y": ref_raster.xdata.coords["y"],
-                #         # Add other coords if necessary
-                #     },
-                #     dims=ref_raster.xdata.dims,
-                # )
-
-                # aligned_rasters[name] = raster_tools.Raster(
-                #     xr_da
-                # )  # Wrap in Raster object
-                ref_coords_y = ref_raster.xdata.coords["y"].values
-                new_coords_y = reprojected.xdata.coords["y"].values
-                self._compare_coords(
-                    ref_coords_y, new_coords_y, axis="y", name=name, ref_name=ref_name
-                )
-                ref_coords_x = ref_raster.xdata.coords["x"].values
                 new_coords_x = reprojected.xdata.coords["x"].values
-                self._compare_coords(
-                    ref_coords_x, new_coords_x, axis="x", name=name, ref_name=ref_name
-                )
+                new_coords_y = reprojected.xdata.coords["y"].values
 
-                aligned_rasters[name] = reprojected
+                if not (
+                    np.array_equal(ref_coords_x, new_coords_x)
+                    and np.array_equal(ref_coords_y, new_coords_y)
+                ):
+                    self._compare_coords(
+                        ref_coords_y,
+                        new_coords_y,
+                        axis="y",
+                        name=name,
+                        ref_name=ref_name,
+                    )
+                    self._compare_coords(
+                        ref_coords_x,
+                        new_coords_x,
+                        axis="x",
+                        name=name,
+                        ref_name=ref_name,
+                    )
+                    # Wrap dask array in xarray DataArray with coords/dims from reference
+                    xr_da = xr.DataArray(
+                        reprojected.data,
+                        coords={
+                            "x": ref_raster.xdata.coords["x"],
+                            "y": ref_raster.xdata.coords["y"],
+                            # Add other coords if necessary
+                        },
+                        dims=ref_raster.xdata.dims,
+                    )
+
+                    aligned_rasters[name] = raster_tools.Raster(
+                        xr_da
+                    )  # Wrap in Raster object
 
         return ref_name, aligned_rasters
 
@@ -222,4 +232,3 @@ class RasterManager:
             str: The corresponding numpy dtype name.
         """
         return self.dtype.get(dtype_name, "<AUTO>")
-        print(f"Safe expression for eval: {safe_expression}")

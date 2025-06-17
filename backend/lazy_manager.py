@@ -53,9 +53,9 @@ class LazyLayerRegistry:
             name (str): The name of the lazy layer to retrieve.
 
         Returns:
-            LazyLayer: The LazyLayer object if found.
+            raster_tools.Raster: The raster object associated with the lazy layer.
         """
-        return self._layers[name]
+        return self._layers[name].raster
 
     def has(self, name: str) -> bool:
         """
@@ -78,18 +78,6 @@ class LazyLayerRegistry:
         """
         return list(self._layers.values())
 
-    def exists(self, name: str) -> bool:
-        """
-        Checks if a lazy layer with the given name exists.
-
-        Args:
-            name (str): The name of the lazy layer to check.
-
-        Returns:
-            bool: True if the lazy layer exists, False otherwise.
-        """
-        return name in self._layers
-
     def mark_computed(self, name: str) -> None:
         """
         Marks a lazy layer as computed.
@@ -104,6 +92,21 @@ class LazyLayerRegistry:
             raise KeyError(f"Lazy layer '{name}' not found.")
 
         self._layers[name].computed = True
+
+    def remove(self, name: str) -> None:
+        """
+        Removes a lazy layer from the registry.
+
+        Args:
+            name (str): The name of the lazy layer to remove.
+
+        Raises:
+            KeyError: If the lazy layer does not exist.
+        """
+        if name not in self._layers:
+            raise KeyError(f"Lazy layer '{name}' not found.")
+
+        del self._layers[name]
 
     def clear(self) -> None:
         """

@@ -64,6 +64,9 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.layer_tree_view = iface.layerTreeView()
         self.layer_tree_view.contextMenuAboutToShow.connect(self.on_context_menu)
 
+        # check if user removed the lazy layer
+        QgsProject.instance().layerWillBeRemoved.connect(self.on_layer_removed)
+
         # check if layers were added or removed
         QgsProject.instance().layersAdded.connect(self.populate_raster_layer_list)
         QgsProject.instance().layerRemoved.connect(self.populate_raster_layer_list)
@@ -129,15 +132,19 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 compute.triggered.connect(lambda: self.compute_lazy_layer(layer))
                 menu.addAction(compute)
 
-            if "Export Lazy Layer..." not in existing_actions:
-                export = QAction("Export Lazy Layer...", menu)
+            if "Compute and Export Lazy Layer..." not in existing_actions:
+                export = QAction("Compute and Export Lazy Layer...", menu)
                 export.triggered.connect(lambda: self.export_lazy_layer(layer))
                 menu.addAction(export)
 
             # Optionally remove non-lazy-specific actions *only for lazy layers*
             for action in menu.actions()[:]:  # make a copy of the list
                 if (
-                    action.text() not in ["Compute Lazy Layer", "Export Lazy Layer..."]
+                    action.text()
+                    not in [
+                        "Compute Lazy Layer",
+                        "Compute and Export Lazy Layer...",
+                    ]
                     and not action.isSeparator()
                 ):
                     menu.removeAction(action)
@@ -155,12 +162,97 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             return
 
         raster = self.lazy_registry.get(layer_name)
-        raster = raster.raster
         self.raster_saver.temp_output(raster, layer_name)
         QgsProject.instance().removeMapLayer(layer.id())
 
     def export_lazy_layer(self, layer):
-        pass
+        layer_name = layer.customProperty("lazy_name", None)
+        if not layer_name:
+            QMessageBox.warning(
+                self,
+                "Error",
+                "This layer does not have a valid lazy name. Cannot export.",
+            )
+            return
+        raster = self.lazy_registry.get(layer_name)
+        suggested_filename = f"{layer_name}.tif"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Lazy Layer",
+            suggested_filename,
+            "GeoTIFF (*.tif *.tiff);;NetCDF (*.nc);;PNG (*.png);;All Files (*)",
+        )
+        if not file_path:
+            return
+        ext = os.path.splitext(file_path)[-1].lower()
+        if ext in [".tif", ".tiff"]:
+            driver = "GTiff"
+        elif ext == ".nc":
+            driver = "NetCDF"
+        elif ext == ".png":
+            driver = "PNG"
+        else:
+            QMessageBox.warning(
+                self,
+                "Unsupported Format",
+                "The selected file format is not supported for export.",
+            )
+            return
+
+        if driver == "PNG" and raster.dtype not in ["uint8", "uint16"]:
+            QMessageBox.warning(
+                self,
+                "Unsupported Data Type",
+                "PNG format only supports uint8 or uint16 data types. Please choose a different format or cast to uint8 or uint16.",
+            )
+            return
+
+        try:
+            print(f"🧪 Saving raster to: {file_path} using driver: {driver}")
+            print(f"🧪 Raster object type: {type(raster)}")
+            print(
+                f"🧪 Output directory exists: {os.path.exists(os.path.dirname(file_path))}"
+            )
+
+            raster.save(file_path, driver=driver)
+
+            if not os.path.exists(file_path):
+                raise RuntimeError(
+                    "File was not created. Possibly driver failed silently."
+                )
+
+            QMessageBox.information(
+                self,
+                "Export Successful",
+                f"Lazy layer '{layer_name}' has been exported successfully to {file_path}.",
+            )
+
+            QgsProject.instance().removeMapLayer(layer.id())
+
+        except Exception as e:
+            tb = traceback.format_exc()
+            print(f"❌ Export Error: {str(e)}\n{tb}")
+            QMessageBox.critical(
+                self,
+                "Export Error",
+                f"An error occurred while exporting the lazy layer:\n{str(e)}\n\nTraceback:\n{tb}",
+            )
+
+    def on_layer_removed(self, layer_id):
+        """Handle the removal of a layer from the project.
+        This method checks if the removed layer was a lazy layer and removes it from the lazy registry.
+        Args:
+            layer_id (str): The ID of the layer that was removed.
+        """
+        layer = QgsProject.instance().mapLayer(layer_id)
+        if not layer:
+            return
+        # Check if the removed layer was a lazy layer
+        lazy_name = layer.customProperty("lazy_name", None)
+        if lazy_name and self.lazy_registry.has(lazy_name):
+            # Remove the lazy layer from the registry
+            self.lazy_registry.remove(lazy_name)
+            print(f"Lazy layer '{lazy_name}' removed from registry.")
 
     def populate_raster_layer_list(self):
         """Populate the list widget with names of all visible raster layers, including lazy ones."""

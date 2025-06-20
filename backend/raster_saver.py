@@ -3,6 +3,8 @@ from qgis.core import QgsProject, QgsRasterLayer, QgsMessageLog, Qgis
 from .exceptions import RasterCalcError, RasterSaveError
 import traceback
 import tempfile
+import gc
+from osgeo import gdal
 
 
 class RasterSaver:
@@ -36,6 +38,20 @@ class RasterSaver:
             file_exists_after = os.path.exists(output_path)
             file_size = os.path.getsize(output_path) if file_exists_after else 0
 
+            # Force file to be completely written and closed
+            gc.collect()  # Force garbage collection to free up memory
+            try:
+                ds = gdal.Open(output_path)
+                if ds:
+                    band = ds.GetRasterBand(1)
+                    # Force GDAL to read and calculate stats
+                    stats = band.ComputeStatistics(False)
+                    print(
+                        f"🔍 DEBUG: GDAL computed stats - min: {stats[0]}, max: {stats[1]}"
+                    )
+                    ds = None  # Close the dataset
+            except Exception as e:
+                print(f"Could not verify file with GDAL: {e}")
             # Only proceed with QGIS layer addition if file actually exists
             if file_exists_after and file_size > 0:
                 layer = QgsRasterLayer(
@@ -76,7 +92,7 @@ class RasterSaver:
         Returns:
             tuple: A tuple containing the QgsRasterLayer and the output path.
         """
-        output_path = os.path.join(tempfile.gettempdir(), f"{name}.tif")
+        output_path = os.path.join(tempfile.gettempdir(), f"{name}.tiff")
         print(f"🔍 DEBUG: Generated temporary output path: {output_path}")
         layer = self.save(raster, output_path)
         return layer, output_path

@@ -295,22 +295,32 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 print(f"Failed to delete temp file {tmp_path}: {e}")
 
     def populate_raster_layer_list(self):
-        """Populate the list widget with names of all visible raster layers, including lazy ones."""
+        """Populate the list widget with visible raster layers, including band-specific entries for multi-band rasters."""
         self.rasterLayerListWidget.clear()
 
         for layer in QgsProject.instance().mapLayers().values():
-            if layer.type() == QgsMapLayerType.RasterLayer:
-                name = layer.name()
+            if layer.type() != QgsMapLayerType.RasterLayer:
+                continue
 
-                # Check if it's a lazy placeholder
-                if layer.customProperty("is_lazy", False):
-                    # Optionally, retrieve the original lazy name (in case display name differs)
-                    lazy_name = layer.customProperty("lazy_name", name)
-                    display_name = f"{lazy_name} (Lazy)"
-                else:
-                    display_name = name
+            is_lazy = layer.customProperty("is_lazy", False)
+            base_name = (
+                layer.customProperty("lazy_name", layer.name())
+                if is_lazy
+                else layer.name()
+            )
 
+            if is_lazy:
+                # Lazy layers are treated as opaque single-band references
+                display_name = f"{base_name} (Lazy)"
                 self.rasterLayerListWidget.addItem(display_name)
+            else:
+                band_count = layer.bandCount()
+                if band_count == 1:
+                    self.rasterLayerListWidget.addItem(base_name)
+                else:
+                    for i in range(1, band_count + 1):
+                        display_name = f"{base_name}@{i}"
+                        self.rasterLayerListWidget.addItem(display_name)
 
     def handle_layer_double_click(self, item):
         """Handle double-click event on a layer name in the list widget.

@@ -1,6 +1,7 @@
 from qgis.core import QgsProject, QgsRasterLayer
 from typing import Optional
 from .exceptions import LayerNotFoundError
+import re
 
 
 class LayerManager:
@@ -15,30 +16,32 @@ class LayerManager:
         and preparing a cache for quick layer retrieval.
         """
         self.project = QgsProject.instance()
-        self._layer_cache = {}  # Cache to store already looked-up raster layers by name
 
     def get_raster_layer(self, name: str) -> Optional[QgsRasterLayer]:
         """
-        Retrieves a raster layer by name from the current project.
+        Retrieves a raster layer by name from the current QGIS project.
 
         Args:
-            name (str): The name of the raster layer to retrieve.
+            name (str): The layer name, optionally with "@<band>" suffix.
 
         Returns:
-            QgsRasterLayer or None: The matching raster layer, if found; otherwise, None.
+            QgsRasterLayer or None
         """
-        # Return from cache if available
-        if name in self._layer_cache:
-            return self._layer_cache[name]
+        # Remove trailing @<number> if present
+        match = re.match(r"^(.+?)@(\d+)$", name)
+        base_name = match.group(1) if match else name
 
-        # Search for raster layers with the given name
-        layers = self.project.mapLayersByName(name)
+        # Remove " (Lazy)" if it's part of the display name
+        if base_name.endswith(" (Lazy)"):
+            base_name = base_name[:-7]
+
+        # Search by cleaned name
+        layers = self.project.mapLayersByName(base_name)
         for layer in layers:
             if isinstance(layer, QgsRasterLayer):
-                self._layer_cache[name] = layer  # Cache the result
                 return layer
 
-        return None  # No matching raster layer found
+        return None
 
     def validate_layer_names(self, layer_names: list[str]) -> None:
         """

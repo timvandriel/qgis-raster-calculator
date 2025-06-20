@@ -2,9 +2,9 @@ import raster_tools
 import xarray as xr
 import numpy as np
 from .layer_manager import LayerManager
-from typing import Optional
 from .exceptions import RasterToolsUnavailableError, LayerNotFoundError
 from .lazy_manager import get_lazy_layer_registry
+import re
 
 
 class RasterManager:
@@ -36,45 +36,60 @@ class RasterManager:
             "CFloat64": "complex128",
             "Int8": "int8",
         }
-        self._raster_cache = {}  # Cache of Raster objects keyed by layer name
 
-    def get_raster(self, name: str) -> Optional[raster_tools.Raster]:
-        print(f"get_raster called with name: {name}")
-        print(f"Current lazy registry: {self.lazy_registry.all_layers()}")
+    def get_raster(self, name: str):
+        """
+        Retrieves a raster_tools.Raster object for the given name.
+        If a band is specified using '@n', returns a single-band Raster.
 
-        if name in self._raster_cache:
-            print(f"Returning cached raster for {name}")
-            return self._raster_cache[name]
+        Args:
+            name (str): Raster layer name, optionally with "@<band>" suffix.
 
-        base_name = name
-        if name.endswith(" (Lazy)"):
-            base_name = name[:-7]
-        print(f"Base name for lazy lookup: {base_name}")
+        Returns:
+            raster_tools.Raster
+        """
+        # Extract base name and band (if present)
+        match = re.match(r"^(.+?)@(\d+)$", name)
+        if match:
+            base_name = match.group(1)
+            band_index = int(match.group(2))
+        else:
+            base_name = name
+            band_index = None
 
-        print(f"Checking lazy registry for base_name: {base_name}")
-        has_lazy = self.lazy_registry.has(base_name)
-        print(f"lazy_registry.has({base_name}) returned: {has_lazy}")
-        if has_lazy:
-            print(f"Found lazy layer for base name: {base_name}")
-            lazy_layer = self.lazy_registry.get(base_name)
-            self._raster_cache[name] = lazy_layer
-            return lazy_layer
+        # Strip " (Lazy)" from name if present
+        if base_name.endswith(" (Lazy)"):
+            base_name = base_name[:-7]
 
-        # Only fetch QGIS layer if lazy layer not found
-        qgis_layer = self.layer_manager.get_raster_layer(name)
-        if not qgis_layer:
-            raise LayerNotFoundError(f"Layer '{name}' not found in QGIS project.")
-        print(f"Found QGIS layer: {name}, source: {qgis_layer.source()}")
+        # Lazy lookup first
+        if self.lazy_registry.has(base_name):
+            raster = self.lazy_registry.get(base_name)
+        else:
+            # Load from QGIS project
+            qgis_layer = self.layer_manager.get_raster_layer(base_name)
+            if not qgis_layer:
+                raise LayerNotFoundError(f"Layer '{base_name}' not found in project.")
+            try:
+                raster = raster_tools.Raster(qgis_layer.source())
+            except Exception as e:
+                raise RasterToolsUnavailableError(
+                    f"Could not load Raster from layer '{base_name}': {str(e)}"
+                )
 
-        try:
-            raster = raster_tools.Raster(qgis_layer.source())
-        except Exception as e:
-            print(f"Error creating raster_tools.Raster: {e}")
-            raise RasterToolsUnavailableError(
-                f"Failed to create Raster from layer '{name}': {str(e)}"
-            )
+        # If a specific band is requested
+        if band_index is not None:
+            try:
+                print(f"Raster shape: {raster.shape}")
+                print(f"Raster dtype: {raster.dtype}")
+                print(f"Raster band count: {raster.shape[0]}")
+                print(f"Band index requested: {band_index}")
 
-        self._raster_cache[name] = raster
+                return raster.get_bands([band_index])
+            except IndexError:
+                raise RasterToolsUnavailableError(
+                    f"Band {band_index + 1} not found in raster '{base_name}'."
+                )
+
         return raster
 
     def get_rasters(self, names: list[str]) -> dict[str, raster_tools.Raster]:

@@ -163,8 +163,12 @@ class RasterManager:
         )
         # Use the reference raster's geobox for alignment
         ref_grid = ref_raster.geobox
-        ref_coords_x = ref_raster.xdata.coords["x"].values
-        ref_coords_y = ref_raster.xdata.coords["y"].values
+        ref_coords_x = ref_raster.xdata.coords[
+            "x"
+        ].values  # Get reference x-coordinates
+        ref_coords_y = ref_raster.xdata.coords[
+            "y"
+        ].values  # Get reference y-coordinates
         aligned_rasters = {}
 
         # Align all rasters to the reference geobox
@@ -184,7 +188,7 @@ class RasterManager:
                 if not (
                     np.array_equal(ref_coords_x, new_coords_x)
                     and np.array_equal(ref_coords_y, new_coords_y)
-                ):
+                ):  # Check if coordinates match
                     self._compare_coords(
                         ref_coords_y,
                         new_coords_y,
@@ -213,6 +217,9 @@ class RasterManager:
                     aligned_rasters[name] = raster_tools.Raster(
                         xr_da
                     )  # Wrap in Raster object
+                else:
+                    # Coordinates match exactly — just add reprojected raster as is
+                    aligned_rasters[name] = reprojected
 
         return ref_name, aligned_rasters
 

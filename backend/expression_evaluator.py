@@ -121,17 +121,6 @@ class ExpressionEvaluator:
         ref_name, raster_objects = self.raster_manager._align_to_smallest_extent(
             raster_objects
         )
-        # Step 4.5c: Cast to data type if specified
-        print(f"🔍 DEBUG: Input d_type parameter: {d_type}")
-        d_type = self.raster_manager.get_dtype(d_type)
-        print(f"🔍 DEBUG: Resolved d_type: {d_type}")
-        if d_type != "<AUTO>":
-            raster_objects = {
-                name: raster.astype(d_type) for name, raster in raster_objects.items()
-            }
-            print(f"🔍 DEBUG: Cast rasters to: {d_type}")
-        else:
-            print(f"🔍 DEBUG: Using AUTO data type - no casting")
 
         # Step 5: Create a safe evaluation context
         context = {}  # maps safe variable names to Raster objects
@@ -155,6 +144,8 @@ class ExpressionEvaluator:
             result = evaluator.evaluate(
                 safe_expression
             )  # Evaluate the expression safely
+            d_type = self.raster_manager.get_dtype(d_type)
+            result = result.astype(d_type) if d_type != "<AUTO>" else result
             print(f"🔍 DEBUG: Result data type: {result.dtype}")
             return result
         except Exception as e:

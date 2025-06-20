@@ -210,7 +210,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             self,
             "Export Lazy Layer",
             suggested_filename,
-            "GeoTIFF (*.tif *.tiff);;NetCDF (*.nc);;PNG (*.png);;All Files (*)",
+            "GeoTIFF (*.tif *.tiff);;GeoPackage (*.gpkg);;NetCDF (*.nc);;PNG (*.png);;All Files (*)",
         )
         if not file_path:
             return
@@ -223,6 +223,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             driver = "NetCDF"
         elif ext == ".png":
             driver = "PNG"
+        elif ext == ".gpkg":
+            driver = "GPKG"
         else:
             QMessageBox.warning(
                 self,
@@ -236,6 +238,13 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 self,
                 "Unsupported Data Type",
                 "PNG format only supports uint8 or uint16 data types. Please choose a different format or cast the raster.",
+            )
+            return
+        elif driver == "GPKG" and raster.dtype != "uint8":
+            QMessageBox.warning(
+                self,
+                "Unsupported Data Type",
+                "GeoPackage format only supports byte data type. Please choose a different format or cast the raster.",
             )
             return
 

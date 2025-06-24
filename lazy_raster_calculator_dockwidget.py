@@ -226,7 +226,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             self,
             "Export Lazy Layer",
             suggested_filename,
-            "GeoTIFF (*.tif *.tiff);;GeoPackage (*.gpkg);;NetCDF (*.nc);;PNG (*.png);;All Files (*)",
+            "GeoTIFF (*.tif *.tiff)",
         )
         if not file_path:
             return
@@ -235,12 +235,6 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         ext = os.path.splitext(file_path)[-1].lower()
         if ext in [".tif", ".tiff"]:
             driver = "GTiff"
-        elif ext == ".nc":
-            driver = "NetCDF"
-        elif ext == ".png":
-            driver = "PNG"
-        elif ext == ".gpkg":
-            driver = "GPKG"
         else:
             QMessageBox.warning(
                 self,
@@ -249,23 +243,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             )
             return
 
-        if driver == "PNG" and raster.dtype not in ["uint8", "uint16"]:
-            QMessageBox.warning(
-                self,
-                "Unsupported Data Type",
-                "PNG format only supports uint8 or uint16 data types. Please choose a different format or cast the raster.",
-            )
-            return
-        elif driver == "GPKG" and raster.dtype != "uint8":
-            QMessageBox.warning(
-                self,
-                "Unsupported Data Type",
-                "GeoPackage format only supports byte data type. Please choose a different format or cast the raster.",
-            )
-            return
-
         try:
-            raster.save(file_path, driver=driver)
+            raster.save(file_path, driver=driver, tiled=True)
 
             if not os.path.exists(file_path):
                 raise RuntimeError("Export failed: file was not created.")
@@ -525,6 +504,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 "Success",
                 f"Raster added to project",
             )
+            self.clear_expression()
         except BandMismatchError as e:
             QMessageBox.critical(self, "Band Mismatch", str(e))
         except InvalidExpressionError as e:

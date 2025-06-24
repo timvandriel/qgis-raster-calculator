@@ -31,7 +31,7 @@ class RasterSaver:
 
             # The actual save call
             print(f"🔍 DEBUG: Calling raster.save() now...")
-            raster.save(output_path, driver=driver)
+            raster.save(output_path, driver=driver, tiled=True)
             print(f"🔍 DEBUG: raster.save() completed without exception")
 
             # DEBUG: Check file after save

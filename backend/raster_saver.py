@@ -19,9 +19,9 @@ class RasterSaver:
         Save the raster to the specified output path using the given driver
         and automatically add it to the current QGIS project.
         Parameters:
-        raster: The raster object to be saved (from raster-tools).
-        output_path (str): The file path where the raster should be saved.
-        driver (str): The raster file format driver (default is "GTiff").
+            raster: The raster object to be saved (from raster-tools).
+            output_path (str): The file path where the raster should be saved.
+            driver (str): The raster file format driver (default is "GTiff").
         Returns:
             QgsRasterLayer: The added raster layer in the QGIS project, or None if save failed.
         """

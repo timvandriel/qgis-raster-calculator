@@ -10,6 +10,7 @@ from .exceptions import (
     InvalidExpressionError,
     RasterSaveError,
     RasterToolsUnavailableError,
+    BandMismatchError,
 )
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "InvalidExpressionError",
     "RasterSaveError",
     "RasterToolsUnavailableError",
+    "BandMismatchError",
 ]

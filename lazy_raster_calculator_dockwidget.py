@@ -39,6 +39,7 @@ from qgis.utils import iface
 from PyQt5.QtWidgets import QFileDialog, QMessageBox, QInputDialog
 from .backend import *
 import traceback
+import numpy as np
 
 
 FORM_CLASS, _ = uic.loadUiType(
@@ -198,6 +199,21 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         try:
             lazy_layer = self.lazy_registry.get(layer_name)
             raster = lazy_layer.copy()
+            print("✅ Raster debug before save:")
+            print("  • Shape:", raster.shape)
+            print("  • Bands:", raster.nbands)
+            print("  • Dtype:", raster.dtype)
+            print("  • CRS:", raster.crs)
+            print("  • Null value:", raster.null_value)
+
+            # These use Dask's lazy reductions
+            print("  • Min:", raster.min().compute())
+            print("  • Max:", raster.max().compute())
+
+            # If you want to inspect actual data:
+            array = raster.to_numpy()
+            print("  • Unique values:", np.unique(array))
+
         except Exception as e:
             QMessageBox.critical(
                 self, "Error", f"Failed to prepare raster for export:\n{str(e)}"
@@ -327,6 +343,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 if band_count == 1:
                     self.rasterLayerListWidget.addItem(base_name)
                 else:
+                    self.rasterLayerListWidget.addItem(base_name)
+                    # Add band-specific entries
                     for i in range(1, band_count + 1):
                         display_name = f"{base_name}@{i}"
                         self.rasterLayerListWidget.addItem(display_name)
@@ -507,7 +525,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 "Success",
                 f"Raster added to project",
             )
-
+        except BandMismatchError as e:
+            QMessageBox.critical(self, "Band Mismatch", str(e))
         except InvalidExpressionError as e:
             QMessageBox.critical(self, "Invalid Expression", str(e))
         except LayerNotFoundError as e:

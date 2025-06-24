@@ -1,7 +1,8 @@
 import re
 import traceback
 from qgis.core import QgsMessageLog, Qgis
-from .exceptions import InvalidExpressionError
+from PyQt5.QtWidgets import QMessageBox
+from .exceptions import InvalidExpressionError, BandMismatchError
 from .raster_manager import RasterManager
 from .safe_evaluator import SafeEvaluator
 import raster_tools
@@ -109,6 +110,7 @@ class ExpressionEvaluator:
 
         # Step 4: Retrieve Raster objects for all layers
         raster_objects = self.raster_manager.get_rasters(layer_names)
+        self.raster_manager.check_bands(raster_objects)  # check for consistent bands
 
         # Step 4.5a: Reproject rasters if needed to target CRS
         if target_crs_authid:

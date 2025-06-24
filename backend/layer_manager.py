@@ -31,10 +31,6 @@ class LayerManager:
         match = re.match(r"^(.+?)@(\d+)$", name)
         base_name = match.group(1) if match else name
 
-        # Remove " (Lazy)" if it's part of the display name
-        if base_name.endswith(" (Lazy)"):
-            base_name = base_name[:-7]
-
         # Search by cleaned name
         layers = self.project.mapLayersByName(base_name)
         for layer in layers:

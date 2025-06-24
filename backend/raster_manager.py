@@ -2,7 +2,11 @@ import raster_tools
 import xarray as xr
 import numpy as np
 from .layer_manager import LayerManager
-from .exceptions import RasterToolsUnavailableError, LayerNotFoundError
+from .exceptions import (
+    RasterToolsUnavailableError,
+    LayerNotFoundError,
+    BandMismatchError,
+)
 from .lazy_manager import get_lazy_layer_registry
 import re
 
@@ -254,3 +258,21 @@ class RasterManager:
             str: The corresponding numpy dtype name.
         """
         return self.dtype.get(dtype_name, "<AUTO>")
+
+    def check_bands(self, rasters: dict):
+        """
+        Ensures all rasters have the same number of bands.
+
+        Raises:
+            BandMismatchError: If the rasters have inconsistent band counts.
+        """
+        band_counts = {name: raster.nbands for name, raster in rasters.items()}
+        unique_counts = set(band_counts.values())
+
+        if len(unique_counts) > 1:
+            message = "All rasters must have the same number of bands.\n\n"
+            message += "\n".join(
+                f"{name}: {count} bands" for name, count in band_counts.items()
+            )
+            raise BandMismatchError(message)
+        return True

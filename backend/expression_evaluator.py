@@ -2,7 +2,7 @@ import re
 import traceback
 from qgis.core import QgsMessageLog, Qgis
 from PyQt5.QtWidgets import QMessageBox
-from .exceptions import InvalidExpressionError, BandMismatchError
+from .exceptions import InvalidExpressionError
 from .raster_manager import RasterManager
 from .safe_evaluator import SafeEvaluator
 import raster_tools
@@ -118,6 +118,8 @@ class ExpressionEvaluator:
                 name: self.raster_manager.reproject_if_needed(raster, target_crs_authid)
                 for name, raster in raster_objects.items()
             }
+        # check for overlaps after each raster matches the target CRS raise error if one or more rasters do not overlap
+        self.raster_manager.raster_overlap(raster_objects)
 
         # Step 4.5b: Align rasters to the smallest extent
         ref_name, raster_objects = self.raster_manager._align_to_smallest_extent(
@@ -148,7 +150,6 @@ class ExpressionEvaluator:
             )  # Evaluate the expression safely
             d_type = self.raster_manager.get_dtype(d_type)
             result = result.astype(d_type) if d_type != "<AUTO>" else result
-            print(f"🔍 DEBUG: Result data type: {result.dtype}")
             return result
         except Exception as e:
             QgsMessageLog.logMessage(

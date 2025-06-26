@@ -11,6 +11,7 @@ from .exceptions import (
     RasterSaveError,
     RasterToolsUnavailableError,
     BandMismatchError,
+    RasterExtentError,
 )
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "RasterSaveError",
     "RasterToolsUnavailableError",
     "BandMismatchError",
+    "RasterExtentError",
 ]

@@ -6,9 +6,11 @@ from .exceptions import (
     RasterToolsUnavailableError,
     LayerNotFoundError,
     BandMismatchError,
+    RasterExtentError,
 )
 from .lazy_manager import get_lazy_layer_registry
 import re
+from shapely import overlaps
 
 
 class RasterManager:
@@ -83,17 +85,11 @@ class RasterManager:
         # If a specific band is requested
         if band_index is not None:
             try:
-                print(f"Raster shape: {raster.shape}")
-                print(f"Raster dtype: {raster.dtype}")
-                print(f"Raster band count: {raster.shape[0]}")
-                print(f"Band index requested: {band_index}")
-
                 return raster.get_bands([band_index])
             except IndexError:
                 raise RasterToolsUnavailableError(
                     f"Band {band_index + 1} not found in raster '{base_name}'."
                 )
-
         return raster
 
     def get_rasters(self, names: list[str]) -> dict[str, raster_tools.Raster]:
@@ -121,6 +117,8 @@ class RasterManager:
         Args:
             name (str): The name of the lazy layer.
             raster (raster_tools.Raster): The raster object to register.
+        Returns:
+            raster_tools.Raster: The lazy layer registered in the lazy registry.
         """
         lazy_layer = self.lazy_registry.register(name, raster)
         return lazy_layer
@@ -131,7 +129,7 @@ class RasterManager:
             raster (raster_tools.Raster): The raster object to check.
             target_crs (str): The target CRS in AUTHID format (e.g., "EPSG:4326").
         Returns:
-            raster_tools.Raster: The raster object, reprojected if necessary.
+            raster_tools.Raster: The raster object, reprojected to the specified crs if necessary.
         """
         if raster.crs.to_string() == target_crs:
             return raster
@@ -179,12 +177,8 @@ class RasterManager:
         for name, raster in rasters.items():
             if ref_grid == raster.geobox:
                 aligned_rasters[name] = raster
-                print(f"Raster '{name}' already aligned to reference '{ref_name}'.")
             else:
                 # Reproject
-                print(
-                    f"Reprojecting raster '{name}' to match reference '{ref_name}' geobox."
-                )
                 reprojected = raster.reproject(crs_or_geobox=ref_grid)
                 new_coords_x = reprojected.xdata.coords["x"].values
                 new_coords_y = reprojected.xdata.coords["y"].values
@@ -193,20 +187,20 @@ class RasterManager:
                     np.array_equal(ref_coords_x, new_coords_x)
                     and np.array_equal(ref_coords_y, new_coords_y)
                 ):  # Check if coordinates match
-                    self._compare_coords(
-                        ref_coords_y,
-                        new_coords_y,
-                        axis="y",
-                        name=name,
-                        ref_name=ref_name,
-                    )
-                    self._compare_coords(
-                        ref_coords_x,
-                        new_coords_x,
-                        axis="x",
-                        name=name,
-                        ref_name=ref_name,
-                    )
+                    # self._compare_coords(
+                    #     ref_coords_y,
+                    #     new_coords_y,
+                    #     axis="y",
+                    #     name=name,
+                    #     ref_name=ref_name,
+                    # )
+                    # self._compare_coords(
+                    #     ref_coords_x,
+                    #     new_coords_x,
+                    #     axis="x",
+                    #     name=name,
+                    #     ref_name=ref_name,
+                    # )
                     # Wrap dask array in xarray DataArray with coords/dims from reference
                     xr_da = xr.DataArray(
                         reprojected.data,
@@ -230,6 +224,15 @@ class RasterManager:
     def _compare_coords(
         self, ref_coords, other_coords, axis="y", name="unnamed", ref_name="reference"
     ):
+        """
+        Helper method that ompares coordinates of two rasters along a specified axis and prints differences.
+        Args:
+            ref_coords (np.ndarray): Reference coordinates to compare against.
+            other_coords (np.ndarray): Coordinates from the other raster to compare.
+            axis (str): Axis along which to compare ('x' or 'y').
+            name (str): Name of the raster being compared.
+            ref_name (str): Name of the reference raster.
+        """
         diffs = np.abs(ref_coords - other_coords)
         max_diff = np.max(diffs)
         mean_diff = np.mean(diffs)
@@ -275,4 +278,26 @@ class RasterManager:
                 f"{name}: {count} bands" for name, count in band_counts.items()
             )
             raise BandMismatchError(message)
+        return True
+
+    def raster_overlap(self, raster_dict):
+        """Checks if all rasters in the dictionary overlap in extent.
+        Args:
+            raster_dict (dict): Dictionary of raster names and their corresponding raster objects.
+        Returns:
+            bool: True if all rasters overlap
+        Raises:
+            RasterExtentError: If any pair of rasters do not overlap in extent.
+        """
+        if len(raster_dict) <= 1:
+            return True
+        # Get the polygons representing the extents of all rasters
+        raster_polygons = [raster.geobox.extent.geom for raster in raster_dict.values()]
+        # Check if all polygons overlap
+        for i in range(len(raster_polygons)):
+            for j in range(i + 1, len(raster_polygons)):
+                if not overlaps(raster_polygons[i], raster_polygons[j]):
+                    raise RasterExtentError(
+                        f"Rasters '{list(raster_dict.keys())[i]}' and '{list(raster_dict.keys())[j]}' are not in the same extent."
+                    )
         return True

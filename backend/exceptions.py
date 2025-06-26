@@ -20,3 +20,7 @@ class RasterToolsUnavailableError(RasterCalcError):
 
 class BandMismatchError(RasterCalcError):
     pass
+
+
+class RasterExtentError(RasterCalcError):
+    pass

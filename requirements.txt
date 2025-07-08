@@ -1,1 +1,2 @@
 raster-tools
+xarray==2023.12.0

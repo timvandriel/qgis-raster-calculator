@@ -10,7 +10,7 @@ from .exceptions import (
 )
 from .lazy_manager import get_lazy_layer_registry
 import re
-from shapely import overlaps
+from shapely import intersects
 
 
 class RasterManager:
@@ -187,20 +187,20 @@ class RasterManager:
                     np.array_equal(ref_coords_x, new_coords_x)
                     and np.array_equal(ref_coords_y, new_coords_y)
                 ):  # Check if coordinates match
-                    # self._compare_coords(
-                    #     ref_coords_y,
-                    #     new_coords_y,
-                    #     axis="y",
-                    #     name=name,
-                    #     ref_name=ref_name,
-                    # )
-                    # self._compare_coords(
-                    #     ref_coords_x,
-                    #     new_coords_x,
-                    #     axis="x",
-                    #     name=name,
-                    #     ref_name=ref_name,
-                    # )
+                    self._compare_coords(
+                        ref_coords_y,
+                        new_coords_y,
+                        axis="y",
+                        name=name,
+                        ref_name=ref_name,
+                    )
+                    self._compare_coords(
+                        ref_coords_x,
+                        new_coords_x,
+                        axis="x",
+                        name=name,
+                        ref_name=ref_name,
+                    )
                     # Wrap dask array in xarray DataArray with coords/dims from reference
                     xr_da = xr.DataArray(
                         reprojected.data,
@@ -296,7 +296,7 @@ class RasterManager:
         # Check if all polygons overlap
         for i in range(len(raster_polygons)):
             for j in range(i + 1, len(raster_polygons)):
-                if not overlaps(raster_polygons[i], raster_polygons[j]):
+                if not intersects(raster_polygons[i], raster_polygons[j]):
                     raise RasterExtentError(
                         f"Rasters '{list(raster_dict.keys())[i]}' and '{list(raster_dict.keys())[j]}' are not in the same extent."
                     )

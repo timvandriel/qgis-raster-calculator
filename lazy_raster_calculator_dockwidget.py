@@ -110,6 +110,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.raster_saver = RasterSaver()
 
     def closeEvent(self, event):
+        self.clear_expression()
         self.closingPlugin.emit()
         event.accept()
 
@@ -127,7 +128,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         if layer.type() == QgsMapLayer.RasterLayer and layer.customProperty(
             "is_lazy", False
         ):
-            # Add your custom actions if not already present
+            # Add custom actions if not already present
             existing_actions = [action.text() for action in menu.actions()]
 
             if "Compute Lazy Layer" not in existing_actions:
@@ -155,6 +156,10 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # For non-lazy layers, do nothing — QGIS will show its default menu
 
     def compute_lazy_layer(self, layer):
+        """Computes the lazy layer by retrieving it from the lazy registry, and adds it to the project as a new raster layer using a temporary path.
+        Args:
+            layer (QgsRasterLayer): The lazy raster layer to compute.
+        """
         layer_name = layer.customProperty("lazy_name", None)
         if not layer_name:
             QMessageBox.warning(
@@ -177,6 +182,8 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             QgsProject.instance().removeMapLayer(layer.id())
 
             del raster  # Free memory
+            del lazy_layer
+            self.clear_expression()  # Clear the expression box
 
         except Exception as e:
             QMessageBox.critical(
@@ -186,6 +193,9 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             )
 
     def export_lazy_layer(self, layer):
+        """Exports the lazy layer to a GeoTIFF file and path specified by the user.
+        Args:
+            layer (QgsRasterLayer): The lazy raster layer to export."""
         layer_name = layer.customProperty("lazy_name", None)
         if not layer_name:
             QMessageBox.warning(
@@ -199,20 +209,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         try:
             lazy_layer = self.lazy_registry.get(layer_name)
             raster = lazy_layer.copy()
-            print("✅ Raster debug before save:")
-            print("  • Shape:", raster.shape)
-            print("  • Bands:", raster.nbands)
-            print("  • Dtype:", raster.dtype)
-            print("  • CRS:", raster.crs)
-            print("  • Null value:", raster.null_value)
-
-            # These use Dask's lazy reductions
-            print("  • Min:", raster.min().compute())
-            print("  • Max:", raster.max().compute())
-
-            # If you want to inspect actual data:
-            array = raster.to_numpy()
-            print("  • Unique values:", np.unique(array))
+            del lazy_layer  # Free memory
 
         except Exception as e:
             QMessageBox.critical(
@@ -228,7 +225,14 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             suggested_filename,
             "GeoTIFF (*.tif *.tiff)",
         )
-        if not file_path:
+        if not file_path:  # User cancelled the dialog
+            return
+        if not os.path.isfile(file_path):  # Check if the file path is valid
+            QMessageBox.warning(
+                self,
+                "Invalid File Path",
+                "The specified file path does not exist or is not a valid file.",
+            )
             return
 
         # Determine driver
@@ -246,9 +250,6 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         try:
             raster.save(file_path, driver=driver, tiled=True)
 
-            if not os.path.exists(file_path):
-                raise RuntimeError("Export failed: file was not created.")
-
             QMessageBox.information(
                 self,
                 "Export Successful",
@@ -260,6 +261,7 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 layer.id()
             )  # Remove the placeholder layer
             del raster  # free memory
+            self.clear_expression()  # Clear the expression box
 
         except Exception as e:
             tb = traceback.format_exc()
@@ -287,7 +289,6 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         lazy_name = layer.customProperty("lazy_name", None)
         if lazy_name and self.lazy_registry.has(lazy_name):
             self.lazy_registry.remove(lazy_name)
-            print(f"Lazy layer '{lazy_name}' removed from registry.")
 
         # 2. Delete associated temporary file if tracked
         tmp_path = self.temp_files.pop(layer_id, None)
@@ -312,17 +313,24 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                 if is_lazy
                 else layer.name()
             )
-
+            band_count = layer.bandCount()
             if is_lazy:
-                # Lazy layers are treated as opaque single-band references
                 display_name = f"{base_name} (Lazy)"
                 self.rasterLayerListWidget.addItem(display_name)
-            else:
-                band_count = layer.bandCount()
+                band_count = int(layer.customProperty("band_count", band_count))
                 if band_count == 1:
-                    self.rasterLayerListWidget.addItem(base_name)
+                    continue
                 else:
-                    self.rasterLayerListWidget.addItem(base_name)
+                    # Add band-specific entries for lazy layers
+                    for i in range(1, band_count + 1):
+                        display_name = f"{base_name} (Lazy)@{i}"
+                        self.rasterLayerListWidget.addItem(display_name)
+
+            else:
+                self.rasterLayerListWidget.addItem(base_name)
+                if band_count == 1:
+                    continue  # Single-band layers only show the base name
+                else:
                     # Add band-specific entries
                     for i in range(1, band_count + 1):
                         display_name = f"{base_name}@{i}"
@@ -364,9 +372,13 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
     def on_expression_changed(self):
         """Handle changes in the expression box."""
-        text = self.expressionBox.toPlainText().strip()
-        valid = ExpressionEvaluator.is_valid_expression(text)
-        self.update_expression_status(valid)
+        if self.expressionBox.toPlainText().strip() == "":
+            self.expressionStatusLabel.setText("Waiting for input...")
+            self.expressionStatusLabel.setStyleSheet("")
+        else:
+            text = self.expressionBox.toPlainText().strip()
+            valid = ExpressionEvaluator.is_valid_expression(text)
+            self.update_expression_status(valid)
 
     def open_crs_dialog(self):
         """Open the CRS selection dialog and set the selected CRS."""
@@ -415,29 +427,38 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         dtypes = [
             "<AUTO>",
             "Byte",
-            "Int16",
+            "Int8",
             "UInt16",
+            "Int16",
             "UInt32",
             "Int32",
+            "UInt64",
+            "Int64",
             "Float32",
             "Float64",
             "CInt16",
             "CInt32",
             "CFloat32",
             "CFloat64",
-            "Int8",
         ]
         for dtype in dtypes:
             self.dtypeComboBox.addItem(dtype)
         self.dtypeComboBox.setCurrentIndex(0)  # Set default to <AUTO>
 
     def on_ok_clicked(self):
+        """Handle the OK button click event.
+        This method evaluates the expression entered by the user, checks if it is valid,
+        and adds the resulting raster layer to the QGIS project.
+        If the expression is lazy, it prompts for a name and adds a placeholder layer.
+        """
+        # Get user inputs
         expression = self.expressionBox.toPlainText().strip()
         is_lazy = self.lazyCheckBox.isChecked()
         crs_index = self.crsComboBox.currentIndex()
         target_crs_authid = self.crsComboBox.itemData(crs_index)
         d_type = self.dtypeComboBox.currentText()
 
+        # Validate inputs
         if not expression:
             QMessageBox.warning(
                 self,
@@ -479,32 +500,38 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
 
             if is_lazy:
                 # Add placeholder fake QgsRasterLayer
+                self.raster_manager.add_lazy_layer(result_name.strip(), result)
                 uri = f"NotComputed:{result_name}"
                 fake_layer = QgsRasterLayer(uri, f"{result_name} (Lazy)")
                 fake_layer.setCustomProperty("is_lazy", True)
                 fake_layer.setCustomProperty("lazy_name", result_name)
+                fake_layer.setCustomProperty("lazy_expression", expression)
+                fake_layer.setCustomProperty("lazy_crs", target_crs_authid)
+                fake_layer.setCustomProperty("lazy_dtype", str(result.dtype))
+                fake_layer.setCustomProperty("band_count", str(result.nbands))
                 QgsProject.instance().addMapLayer(fake_layer)
-                self.raster_manager.add_lazy_layer(result_name.strip(), result)
 
                 QMessageBox.information(
                     self,
                     "Lazy Evaluation",
                     f"Lazy layer '{result_name}' has been created and added as a placeholder.",
                 )
+                self.clear_expression()
                 return
             try:
+                # Save the raster to a temporary file and add it to the project
                 layer, temp_path = self.raster_saver.temp_output(result, result_name)
                 self.temp_files[layer.id()] = temp_path
-            except Exception as e:
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Raster added to project",
+                )
+                self.clear_expression()
+            except RasterSaveError as e:
                 print(f"Error saving file: {str(e)}")
                 return
 
-            QMessageBox.information(
-                self,
-                "Success",
-                f"Raster added to project",
-            )
-            self.clear_expression()
         except BandMismatchError as e:
             QMessageBox.critical(self, "Band Mismatch", str(e))
         except InvalidExpressionError as e:

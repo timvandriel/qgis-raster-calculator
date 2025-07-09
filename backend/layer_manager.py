@@ -12,8 +12,7 @@ class LayerManager:
 
     def __init__(self):
         """
-        Initializes the LayerManager by referencing the current QGIS project instance
-        and preparing a cache for quick layer retrieval.
+        Initializes the LayerManager by referencing the current QGIS project instance.
         """
         self.project = QgsProject.instance()
 

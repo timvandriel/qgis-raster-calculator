@@ -92,7 +92,7 @@ class RasterSaver:
         Returns:
             tuple: A tuple containing the QgsRasterLayer and the output path.
         """
-        output_path = os.path.join(tempfile.gettempdir(), f"{name}.tiff")
+        output_path = os.path.join(tempfile.gettempdir(), f"{name}.tif")
         print(f"🔍 DEBUG: Generated temporary output path: {output_path}")
         layer = self.save(raster, output_path)
         return layer, output_path

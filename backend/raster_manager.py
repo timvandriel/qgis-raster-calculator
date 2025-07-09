@@ -21,7 +21,7 @@ class RasterManager:
 
     def __init__(self, layer_manager: LayerManager):
         """
-        Initializes the RasterManager with a reference to the LayerManager.
+        Initializes the RasterManager with a reference to the LayerManager, a singleton instance of the lazy registry, and the available dtypes for the rasters.
 
         Args:
             layer_manager (LayerManager): The manager used to retrieve QGIS raster layers.
@@ -34,6 +34,8 @@ class RasterManager:
             "UInt16": "uint16",
             "UInt32": "uint32",
             "Int32": "int32",
+            "Int64": "int64",
+            "UInt64": "uint64",
             "Float32": "float32",
             "Float64": "float64",
             "CInt16": "complex64",
@@ -101,6 +103,9 @@ class RasterManager:
 
         Returns:
             dict[str, raster_tools.Raster]: Dictionary mapping names to `Raster` objects.
+
+        Raises:
+            LayerNotFoundError: If any of the specified raster layers are not found in the QGIS project.
         """
         rasters = {}
         for name in names:
@@ -120,6 +125,10 @@ class RasterManager:
         Returns:
             raster_tools.Raster: The lazy layer registered in the lazy registry.
         """
+        if self.lazy_registry.has(name):
+            raise ValueError(
+                f"Lazy layer '{name}' already exists please choose a different name."
+            )
         lazy_layer = self.lazy_registry.register(name, raster)
         return lazy_layer
 

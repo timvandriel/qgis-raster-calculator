@@ -18,8 +18,8 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>276</width>
-    <height>504</height>
+    <width>313</width>
+    <height>528</height>
    </size>
   </property>
   <property name="maximumSize">
@@ -148,38 +148,24 @@
           <property name="spacing">
            <number>0</number>
           </property>
-          <item row="3" column="2">
-           <widget class="QPushButton" name="equalButton">
-            <property name="text">
-             <string>=</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QPushButton" name="ltButton">
-            <property name="text">
-             <string>&lt;</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="2">
+          <item row="3" column="1">
            <widget class="QPushButton" name="gtButton">
             <property name="text">
              <string>&gt;</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
-           <widget class="QPushButton" name="closeParenButton">
+          <item row="0" column="1">
+           <widget class="QPushButton" name="multiplyButton">
             <property name="text">
-             <string>)</string>
+             <string>*</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="3">
-           <widget class="QPushButton" name="orButton">
+          <item row="0" column="0">
+           <widget class="QPushButton" name="plusButton">
             <property name="text">
-             <string>OR</string>
+             <string>+</string>
             </property>
            </widget>
           </item>
@@ -190,21 +176,21 @@
             </property>
            </widget>
           </item>
+          <item row="2" column="2">
+           <widget class="QPushButton" name="closeParenButton">
+            <property name="text">
+             <string>)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QPushButton" name="gtEqButton">
+            <property name="text">
+             <string>&gt;=</string>
+            </property>
+           </widget>
+          </item>
           <item row="2" column="0">
-           <widget class="QPushButton" name="multiplyButton">
-            <property name="text">
-             <string>*</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="3">
-           <widget class="QPushButton" name="notButton">
-            <property name="text">
-             <string>NOT</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
            <widget class="QPushButton" name="minusButton">
             <property name="minimumSize">
              <size>
@@ -217,28 +203,56 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
-           <widget class="QPushButton" name="openParenButton">
-            <property name="text">
-             <string>(</string>
-            </property>
-           </widget>
-          </item>
           <item row="0" column="3">
            <widget class="QPushButton" name="andButton">
             <property name="text">
-             <string>AND</string>
+             <string>&amp;&amp;</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="0">
-           <widget class="QPushButton" name="plusButton">
+          <item row="3" column="2">
+           <widget class="QPushButton" name="equalButton">
             <property name="text">
-             <string>+</string>
+             <string>==</string>
             </property>
            </widget>
           </item>
-          <item row="4" column="0">
+          <item row="3" column="0">
+           <widget class="QPushButton" name="ltButton">
+            <property name="text">
+             <string>&lt;</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="3">
+           <widget class="QPushButton" name="notButton">
+            <property name="text">
+             <string>~</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="3">
+           <widget class="QPushButton" name="orButton">
+            <property name="text">
+             <string>|</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QPushButton" name="ltEqButton">
+            <property name="text">
+             <string>&lt;=</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="2">
+           <widget class="QPushButton" name="notEqButton">
+            <property name="text">
+             <string>!=</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="3">
            <widget class="QPushButton" name="clearButton">
             <property name="minimumSize">
              <size>
@@ -248,6 +262,13 @@
             </property>
             <property name="text">
              <string>Clear</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QPushButton" name="openParenButton">
+            <property name="text">
+             <string>(</string>
             </property>
            </widget>
           </item>

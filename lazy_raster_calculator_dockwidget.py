@@ -80,12 +80,22 @@ class LazyRasterCalculatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         )
 
         # buttons for raster calculator
+        # Arithmetic operators
         self.plusButton.clicked.connect(lambda: self.insert_operator("+"))
         self.minusButton.clicked.connect(lambda: self.insert_operator("-"))
         self.multiplyButton.clicked.connect(lambda: self.insert_operator("*"))
         self.divideButton.clicked.connect(lambda: self.insert_operator("/"))
         self.openParenButton.clicked.connect(lambda: self.insert_operator("("))
         self.closeParenButton.clicked.connect(lambda: self.insert_operator(")"))
+        self.ltButton.clicked.connect(lambda: self.insert_operator("<"))
+        self.gtButton.clicked.connect(lambda: self.insert_operator(">"))
+        self.ltEqButton.clicked.connect(lambda: self.insert_operator("<="))
+        self.gtEqButton.clicked.connect(lambda: self.insert_operator(">="))
+        self.notEqButton.clicked.connect(lambda: self.insert_operator("!="))
+        self.equalButton.clicked.connect(lambda: self.insert_operator("=="))
+        self.andButton.clicked.connect(lambda: self.insert_operator("&"))
+        self.orButton.clicked.connect(lambda: self.insert_operator("|"))
+        self.notButton.clicked.connect(lambda: self.insert_operator("~"))
         self.clearButton.clicked.connect(self.clear_expression)
 
         # crs button and combobox
